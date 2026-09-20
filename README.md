@@ -141,6 +141,7 @@ Ein anpassbares Kanban-Board fuer Obsidian auf GTD-Basis.
   eine Live-Vorschau, was erkannt wurde. So laesst sich z. B.
   "Angebot pruefen @Buero +SAP-Transformation 📅 morgen 🔺" in einem Zug
   vollstaendig erfassen, ohne die Aufgabe danach im Board nachzupflegen.
+<<<<<<< HEAD
 - **Mehrsprachigkeit**: die Oberflaeche (Buttons, Menues, Einstellungen,
   Benachrichtigungen) ist auf Deutsch und Englisch verfuegbar und folgt
   automatisch Obsidians eigener Spracheinstellung - keine zusaetzliche
@@ -148,6 +149,8 @@ Ein anpassbares Kanban-Board fuer Obsidian auf GTD-Basis.
   `heute`/`morgen`/`übermorgen`, Wiederholungswoerter) bleibt unabhaengig
   von der Oberflaechensprache unveraendert, damit bestehende Notizen nicht
   brechen. Weitere Sprachen lassen sich ueber `src/i18n/` ergaenzen.
+=======
+>>>>>>> origin/main
 
 ## Installation (manuell, zum Testen)
 
