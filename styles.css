@@ -309,6 +309,16 @@
 	border-radius: 8px;
 }
 
+/* Drop-Positions-Anzeige beim Drag & Drop-Umsortieren: Karte, ueber der gerade gezogen wird,
+   bekommt je nach Mausposition oben/unten einen betonten Rahmen als Einfuege-Indikator. */
+.gtd-card-drop-above {
+	box-shadow: 0 -2px 0 0 var(--interactive-accent);
+}
+
+.gtd-card-drop-below {
+	box-shadow: 0 2px 0 0 var(--interactive-accent);
+}
+
 .gtd-lane-dot {
 	width: 10px;
 	height: 10px;
@@ -611,4 +621,88 @@
 .gtd-lane-setting-row .setting-item-control {
 	flex-wrap: wrap;
 	gap: 6px;
+}
+
+/* ---------------------------------------------------------------------------------------
+ * Mobile-Layout: ausschliesslich additive Regeln unter .is-mobile - das Desktop-Layout
+ * (siehe oben) bleibt unveraendert. Lanes stapeln sich vertikal statt nebeneinander,
+ * die Toolbar bricht mehrzeilig um, und Touch-Ziele werden grosszuegiger.
+ * ------------------------------------------------------------------------------------- */
+
+.is-mobile .gtd-board {
+	flex-direction: column;
+	overflow-x: visible;
+	align-items: stretch;
+}
+
+.is-mobile .gtd-lane {
+	min-width: 0;
+	max-width: none;
+	width: 100%;
+	max-height: none;
+}
+
+.is-mobile .gtd-lane-collapsed {
+	min-width: 0;
+	max-width: none;
+	width: 100%;
+}
+
+.is-mobile .gtd-lane-collapsed .gtd-lane-header {
+	flex-direction: row;
+	padding: 8px 10px;
+}
+
+.is-mobile .gtd-lane-collapsed .gtd-lane-title {
+	writing-mode: horizontal-tb;
+	transform: none;
+	max-height: none;
+}
+
+.is-mobile .gtd-lane-collapsed .gtd-lane-count {
+	writing-mode: horizontal-tb;
+}
+
+.is-mobile .gtd-lane-body {
+	max-height: 60vh;
+}
+
+/* Toolbar: Suche/Kontext/Projekt/Ansicht/Sortierung bleiben direkt sichtbar und brechen
+   bei Bedarf in eine weitere Zeile um, statt horizontal zu scrollen. */
+.is-mobile .gtd-board-toolbar {
+	flex-wrap: wrap;
+	justify-content: flex-start;
+}
+
+.is-mobile .gtd-toolbar-search-group {
+	flex: 1 1 100%;
+	margin-right: 0;
+}
+
+.is-mobile .gtd-board-overflow-btn {
+	margin-left: auto;
+}
+
+/* Touch-Ziele vergroessern (Obsidian Mobile erwartet ~44px Mindestgroesse). */
+.is-mobile .gtd-toolbar-group button,
+.is-mobile .gtd-board-overflow-btn,
+.is-mobile .gtd-lane-toggle,
+.is-mobile .gtd-lane-add,
+.is-mobile .gtd-card-done-checkbox,
+.is-mobile .gtd-card-select-checkbox {
+	min-height: 44px;
+	min-width: 44px;
+}
+
+.is-mobile .gtd-toolbar-inline-icon select,
+.is-mobile .gtd-toolbar-inline-icon input {
+	min-height: 40px;
+}
+
+.is-mobile .gtd-lane-add {
+	font-size: 1.4em;
+}
+
+.is-mobile .gtd-card {
+	padding: 10px 12px;
 }

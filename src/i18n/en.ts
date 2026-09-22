@@ -102,6 +102,10 @@ export const en = {
 			name: "Read inline checkboxes",
 			desc: "In addition to task files, also show '- [ ]' checkboxes in regular notes of the folder as tasks.",
 		},
+		autoPromoteInbox: {
+			name: "Auto-promote inbox tasks",
+			desc: "Tasks in the lane marked 'Inbox' that get a due date automatically move to the lane marked 'Next actions'.",
+		},
 		defaultReminder: {
 			name: "Default reminder",
 			desc: "Minutes before due date, when no explicit reminder is set.",
@@ -158,6 +162,10 @@ export const en = {
 			plannedTooltip: "Planned overview: automatically shows all due tasks, sorted by due date",
 			somedayTooltip:
 				"Someday/Maybe: tasks that sit here for a long time without review are marked on the card as needing a refresh",
+			inboxTooltip:
+				"Inbox: source lane for auto-promotion. A task here that gets a due date moves to the lane marked 'Next actions' (if enabled in settings).",
+			nextActionsTooltip:
+				"Next actions: target lane for auto-promotion from the inbox (see 'Auto-promote inbox tasks' in settings).",
 			wipLimitPlaceholder: "WIP limit",
 			wipLimitTitle: "Optional WIP limit for this lane",
 			moveUp: "Move up",
@@ -204,6 +212,9 @@ export const en = {
 			button: "Refresh",
 			title:
 				"Manually reload the board. Usually not needed - the board updates automatically on vault changes; helpful e.g. right after renaming lanes in settings.",
+		},
+		overflow: {
+			title: "More actions",
 		},
 		agenda: {
 			empty: "No open tasks.",

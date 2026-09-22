@@ -489,6 +489,59 @@ export function countSubtasks(description: string | undefined): SubtaskProgress 
 	return total > 0 ? { done, total } : undefined;
 }
 
+/**
+ * Entscheidet, ob eine Aufgabe beim Setzen/Aendern ihrer Faelligkeit aus der Eingang-Lane
+ * automatisch in die "Naechste Aktionen"-Lane befoerdert werden soll. Reine Entscheidungslogik,
+ * ohne Seiteneffekt - Store/View wenden das Ergebnis (Ziel-Lane-ID oder undefined = keine
+ * Befoerderung) an. Gibt undefined zurueck, wenn die Funktion nicht greift: Einstellung aus,
+ * keine Faelligkeit gesetzt, aktuelle Lane ist keine Eingang-Lane, oder es existiert keine als
+ * isNextActions markierte Ziel-Lane.
+ */
+export function shouldPromoteFromInbox(
+	currentLaneId: string,
+	newDue: string | undefined,
+	lanes: LaneConfig[],
+	autoPromoteEnabled: boolean
+): string | undefined {
+	if (!autoPromoteEnabled) return undefined;
+	if (!newDue || newDue.trim().length === 0) return undefined;
+	const currentLane = lanes.find((l) => l.id === currentLaneId);
+	if (!currentLane?.isInbox) return undefined;
+	const nextActionsLane = lanes.find((l) => l.isNextActions);
+	return nextActionsLane?.id;
+}
+
+/**
+ * Baut aus der aktuellen visuellen Reihenfolge einer Lane (Task-IDs) eine neue Reihenfolge,
+ * bei der `draggedId` vor bzw. nach `dropTargetId` eingefuegt wird (je nach `position`).
+ * `draggedId` darf, muss aber nicht bereits in `currentOrder` enthalten sein (bei einem
+ * Lane-Wechsel per Drag & Drop steht die Aufgabe vorher noch nicht in der Ziel-Lane).
+ * Ist `dropTargetId` nicht in `currentOrder` enthalten, wird die Eingabe unveraendert
+ * zurueckgegeben (Aufrufer sollte das nicht erreichen koennen).
+ */
+export function reorderTaskIds(
+	currentOrder: string[],
+	draggedId: string,
+	dropTargetId: string,
+	position: "before" | "after"
+): string[] {
+	const withoutDragged = currentOrder.filter((id) => id !== draggedId);
+	const targetIndex = withoutDragged.indexOf(dropTargetId);
+	if (targetIndex === -1) return currentOrder;
+	const insertIndex = position === "before" ? targetIndex : targetIndex + 1;
+	withoutDragged.splice(insertIndex, 0, draggedId);
+	return withoutDragged;
+}
+
+/** Weist einer Liste von Task-IDs fortlaufende, ganzzahlige order-Werte (0, 1, 2, ...) zu, in ihrer Reihenfolge. */
+export function assignSequentialOrder(ids: string[]): Record<string, number> {
+	const map: Record<string, number> = {};
+	ids.forEach((id, index) => {
+		map[id] = index;
+	});
+	return map;
+}
+
 /** Baut den Inhalt einer .ics-Kalenderdatei aus allen offenen (nicht erledigten) Aufgaben mit Faelligkeit. */
 export function buildIcsContent(tasks: GtdTask[], now: Date = new Date()): string {
 	const pad = (n: number) => String(n).padStart(2, "0");

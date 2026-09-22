@@ -26,6 +26,17 @@ export interface LaneConfig {
 	 * Funktionsaenderung.
 	 */
 	isSomeday?: boolean;
+	/**
+	 * Markiert die GTD-Eingang/Erfassungs-Lane: Aufgaben, die hier ein Faelligkeitsdatum
+	 * bekommen (per Erstellungs-/Bearbeiten-Dialog oder Schnellerfassung), wandern automatisch
+	 * in die als isNextActions markierte Lane, sofern "autoPromoteInboxOnDueDate" aktiviert ist.
+	 */
+	isInbox?: boolean;
+	/**
+	 * Markiert die "Naechste Aktionen"-Lane als Ziel der automatischen Befoerderung aus der
+	 * Eingang-Lane (siehe isInbox). Ohne eine so markierte Lane hat isInbox keine Wirkung.
+	 */
+	isNextActions?: boolean;
 }
 
 export type TaskSource = "file" | "inline";
@@ -115,11 +126,16 @@ export interface GtdBoardSettings {
 	delegateFollowUpDays: number;
 	/** Tage ohne Regung, nach denen eine Someday/Maybe-Aufgabe als auffrischungsbeduerftig markiert wird. */
 	somedayRefreshDays: number;
+	/**
+	 * Aufgaben in der als isInbox markierten Lane, die ein Faelligkeitsdatum bekommen, automatisch
+	 * in die als isNextActions markierte Lane befoerdern (statt in der Eingang-Lane liegen zu bleiben).
+	 */
+	autoPromoteInboxOnDueDate: boolean;
 }
 
 export const DEFAULT_LANES: LaneConfig[] = [
-	{ id: "inbox", name: "Eingang", color: "#8e8e93", tag: "gtd/inbox" },
-	{ id: "next-actions", name: "Naechste Aktionen", color: "#0a84ff", tag: "gtd/next" },
+	{ id: "inbox", name: "Eingang", color: "#8e8e93", tag: "gtd/inbox", isInbox: true },
+	{ id: "next-actions", name: "Naechste Aktionen", color: "#0a84ff", tag: "gtd/next", isNextActions: true },
 	{ id: "waiting-for", name: "Wartet auf", color: "#ff9f0a", tag: "gtd/waiting" },
 	{ id: "someday-maybe", name: "Irgendwann/Vielleicht", color: "#bf5af2", tag: "gtd/someday", isSomeday: true },
 	{ id: "done", name: "Erledigt", color: "#30d158", tag: "gtd/done", isDone: true },
@@ -143,4 +159,5 @@ export const DEFAULT_SETTINGS: GtdBoardSettings = {
 	reviewedAt: {},
 	delegateFollowUpDays: 5,
 	somedayRefreshDays: 60,
+	autoPromoteInboxOnDueDate: true,
 };

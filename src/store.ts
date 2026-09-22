@@ -1,6 +1,7 @@
 import { App, TFile, TFolder, normalizePath } from "obsidian";
 import { GtdBoardSettings, GtdTask, LaneConfig, RecurrenceRule, TaskPriority } from "./types";
 import {
+	assignSequentialOrder,
 	bounceRecurringInlineLine,
 	buildTaskFileContent,
 	fileTaskId,
@@ -159,17 +160,20 @@ export class GtdStore {
 	}
 
 	/** Legt eine neue Aufgaben-Datei in der konfigurierten Lane an. */
-	async createTaskFile(
-		laneId: string,
-		title: string,
-		description: string,
-		priority?: TaskPriority,
-		contexts?: string[],
-		recurrence?: RecurrenceRule,
-		delegatedTo?: string,
-		project?: string,
-		due?: string
-	): Promise<TFile> {
+	async createTaskFile(options: {
+		laneId: string;
+		title: string;
+		description: string;
+		priority?: TaskPriority;
+		contexts?: string[];
+		recurrence?: RecurrenceRule;
+		delegatedTo?: string;
+		project?: string;
+		due?: string;
+		reminderAt?: string;
+	}): Promise<TFile> {
+		const { laneId, title, description, priority, contexts, recurrence, delegatedTo, project, due, reminderAt } =
+			options;
 		await this.ensureFolder(this.settings.taskFilesFolder);
 		const baseName = sanitizeFileName(title);
 		let fileName = `${baseName}.md`;
@@ -189,6 +193,7 @@ export class GtdStore {
 				done: targetLane?.isDone ? true : undefined,
 				doneAt: targetLane?.isDone ? nowISO() : undefined,
 				due: due && due.trim().length > 0 ? due.trim() : undefined,
+				reminder: reminderAt && reminderAt.trim().length > 0 ? reminderAt.trim() : undefined,
 				priority: priority && priority !== "medium" ? priority : undefined,
 				contexts: contexts && contexts.length > 0 ? contexts : undefined,
 				recurrence: recurrence,
@@ -285,6 +290,52 @@ export class GtdStore {
 	}
 
 	/**
+	 * Reiht eine Datei-Aufgabe per Drag & Drop an eine neue Position innerhalb einer Lane ein
+	 * (ggf. inkl. Lane-Wechsel, wenn auf eine Karte in einer anderen Lane gedroppt wurde).
+	 * `orderedTaskIdsInLane` ist die vollstaendige neue visuelle Reihenfolge der Ziel-Lane
+	 * (inklusive der gezogenen Aufgabe an ihrer neuen Position); allen darin enthaltenen
+	 * Datei-Aufgaben wird ein fortlaufender order-Wert zugewiesen, damit die manuelle
+	 * Reihenfolge auch nach einem Refresh erhalten bleibt. Inline-Aufgaben in derselben Liste
+	 * werden uebersprungen (kein persistierbarer order-Wert) - sie behalten ihre aus der
+	 * Zeilenposition abgeleitete Reihenfolge.
+	 */
+	async reorderFileTask(task: GtdTask, targetLaneId: string, orderedTaskIdsInLane: string[]): Promise<void> {
+		const orderMap = assignSequentialOrder(orderedTaskIdsInLane);
+		const targetLane = this.settings.lanes.find((l) => l.id === targetLaneId);
+		for (const id of orderedTaskIdsInLane) {
+			if (!id.startsWith("file::")) continue; // Inline-Aufgabe: kein persistierbarer order-Wert.
+			const filePath = id.slice("file::".length);
+			const file = this.app.vault.getAbstractFileByPath(filePath);
+			if (!(file instanceof TFile)) continue;
+			const content = await this.app.vault.read(file);
+			const { frontmatter, body } = parseTaskFile(content);
+			frontmatter.order = orderMap[id];
+			if (id === task.id && frontmatter.lane !== targetLaneId) {
+				// Gleiche Sonderbehandlung wie bei moveFileTask: Drop direkt auf eine Karte
+				// in einer "Erledigt"-Lane muss die Wiederholungs-Logik genauso auslösen wie
+				// ein Drop auf den leeren Lane-Hintergrund.
+				const recurrence = toRecurrenceRule(frontmatter.recurrence);
+				if (targetLane?.isDone && recurrence && frontmatter.due) {
+					frontmatter.due = nextOccurrence(frontmatter.due, recurrence) ?? frontmatter.due;
+					frontmatter.done = false;
+					frontmatter.doneAt = undefined;
+					// Bleibt in ihrer Herkunfts-Lane offen statt in "Erledigt" zu landen.
+					frontmatter.lane = task.laneId;
+				} else if (targetLane?.isDone) {
+					frontmatter.done = true;
+					frontmatter.doneAt = nowISO();
+					if (!frontmatter.lane) frontmatter.lane = task.laneId;
+				} else {
+					frontmatter.lane = targetLaneId;
+					frontmatter.done = false;
+					frontmatter.doneAt = undefined;
+				}
+			}
+			await this.app.vault.modify(file, buildTaskFileContent(frontmatter, body));
+		}
+	}
+
+	/**
 	 * Verschiebt eine Inline-Aufgabe in eine andere Lane, indem die Quellzeile direkt
 	 * angepasst wird (Lane-Tag getauscht, Haken ggf. gesetzt/entfernt). Es wird keine
 	 * Datei angelegt, solange nur die Lane geaendert wird.
@@ -318,7 +369,8 @@ export class GtdStore {
 			tags?: string[];
 			delegatedTo?: string;
 			project?: string;
-		}
+		},
+		targetLaneId?: string
 	): Promise<TFile> {
 		const sourceFile = this.app.vault.getAbstractFileByPath(task.filePath);
 		if (sourceFile instanceof TFile && task.line !== undefined) {
@@ -342,7 +394,7 @@ export class GtdStore {
 		const path = joinPath(this.settings.taskFilesFolder, fileName);
 		const content = buildTaskFileContent(
 			{
-				lane: task.laneId,
+				lane: targetLaneId ?? task.laneId,
 				done: task.done ? true : undefined,
 				doneAt: task.done ? nowISO() : undefined,
 				due: fields.due,

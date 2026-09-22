@@ -103,6 +103,10 @@ export const de = {
 			name: "Inline-Checkboxen einlesen",
 			desc: "Zusaetzlich zu Aufgaben-Dateien auch '- [ ]'-Checkboxen in normalen Notizen des Ordners als Aufgaben anzeigen.",
 		},
+		autoPromoteInbox: {
+			name: "Eingang automatisch befoerdern",
+			desc: "Aufgaben in der Eingang-Lane, denen ein Faelligkeitsdatum gegeben wird, wandern automatisch in die als 'Naechste Aktionen' markierte Lane.",
+		},
 		defaultReminder: {
 			name: "Standard-Erinnerung",
 			desc: "Minuten vor Faelligkeit, wenn keine explizite Erinnerung gesetzt ist.",
@@ -159,6 +163,10 @@ export const de = {
 			plannedTooltip: "Geplant-Uebersicht: zeigt automatisch alle faelligen Aufgaben, sortiert nach Faelligkeit",
 			somedayTooltip:
 				"Irgendwann/Vielleicht: Aufgaben, die hier lange ohne Review liegen, werden auf der Karte als auffrischungsbeduerftig markiert",
+			inboxTooltip:
+				"Eingang: Quell-Lane fuer die automatische Befoerderung. Eine Aufgabe hier, die ein Faelligkeitsdatum bekommt, wandert in die als 'Naechste Aktionen' markierte Lane (wenn in den Einstellungen aktiviert).",
+			nextActionsTooltip:
+				"Naechste Aktionen: Ziel-Lane der automatischen Befoerderung aus dem Eingang (siehe 'Eingang automatisch befoerdern' in den Einstellungen).",
 			wipLimitPlaceholder: "WIP-Limit",
 			wipLimitTitle: "Optionales WIP-Limit fuer diese Lane",
 			moveUp: "Nach oben",
@@ -205,6 +213,9 @@ export const de = {
 			button: "Aktualisieren",
 			title:
 				"Board manuell neu laden. Normalerweise nicht noetig - das Board aktualisiert sich automatisch bei Aenderungen im Vault; hilfreich z. B. direkt nach dem Umbenennen von Lanes in den Einstellungen.",
+		},
+		overflow: {
+			title: "Weitere Aktionen",
 		},
 		agenda: {
 			empty: "Keine offenen Aufgaben.",

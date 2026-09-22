@@ -1,4 +1,4 @@
-import { ItemView, Menu, MarkdownRenderer, Notice, setIcon, TFile, WorkspaceLeaf } from "obsidian";
+import { ItemView, Menu, MarkdownRenderer, Notice, Platform, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 import type GtdBoardPlugin from "./main";
 import { GtdTask, LaneConfig, SortMode } from "./types";
 import {
@@ -6,9 +6,12 @@ import {
 	countSubtasks,
 	daysSince,
 	dueUrgency,
+	fileTaskId,
 	formatLocalDate,
 	parseLocalDateTime,
 	priorityRank,
+	reorderTaskIds,
+	shouldPromoteFromInbox,
 	startOfWeek,
 } from "./util";
 import { getLocale, priorityLabel, recurrenceLabel, t } from "./i18n";
@@ -217,27 +220,68 @@ export class GtdBoardView extends ItemView {
 			void this.setSortMode(this.sortSelectEl.value as SortMode);
 		});
 
-		const selectionToggleBtn = this.createIconButton(
-			toolbar,
-			"list-checks",
-			t("view.selection.button"),
-			"gtd-board-selection-toggle"
-		);
-		selectionToggleBtn.setAttribute("title", t("view.selection.title"));
-		selectionToggleBtn.addEventListener("click", () => {
-			this.selectionMode = !this.selectionMode;
-			selectionToggleBtn.toggleClass("is-active", this.selectionMode);
-			if (!this.selectionMode) this.selectedTaskIds.clear();
-			this.renderBoard();
-		});
+		// Mehrfachauswahl, Wochenrueckblick und Aktualisieren bleiben auf dem Desktop als eigene
+		// sichtbare Buttons; auf Mobile wandern sie in ein einzelnes Overflow-Menu, damit die
+		// Toolbar dort nicht zu viele Icons auf einmal zeigt.
+		if (Platform.isMobile) {
+			const overflowBtn = this.createIconButton(toolbar, "more-vertical", "", "gtd-board-overflow-btn");
+			overflowBtn.setAttribute("aria-label", t("view.overflow.title"));
+			overflowBtn.setAttribute("title", t("view.overflow.title"));
+			// Da ein Menuepunkt (anders als ein Toolbar-Button) nicht dauerhaft sichtbar
+			// hervorgehoben bleibt, spiegelt der Overflow-Button selbst den Auswahl-Modus-
+			// Zustand wider - Parity zur Desktop-Ansicht, in der der Button aktiv leuchtet.
+			overflowBtn.toggleClass("is-active", this.selectionMode);
+			overflowBtn.addEventListener("click", (evt) => {
+				const menu = new Menu();
+				menu.addItem((item) =>
+					item
+						.setTitle(t("view.selection.button"))
+						.setIcon("list-checks")
+						.setChecked(this.selectionMode)
+						.onClick(() => {
+							this.selectionMode = !this.selectionMode;
+							overflowBtn.toggleClass("is-active", this.selectionMode);
+							if (!this.selectionMode) this.selectedTaskIds.clear();
+							this.renderBoard();
+						})
+				);
+				menu.addItem((item) =>
+					item
+						.setTitle(t("view.review.button"))
+						.setIcon("clipboard-check")
+						.onClick(() => void this.plugin.openWeeklyReview())
+				);
+				menu.addItem((item) =>
+					item
+						.setTitle(t("view.refresh.button"))
+						.setIcon("refresh-cw")
+						.onClick(() => void this.refresh())
+				);
+				menu.showAtMouseEvent(evt);
+			});
+		} else {
+			const selectionToggleBtn = this.createIconButton(
+				toolbar,
+				"list-checks",
+				t("view.selection.button"),
+				"gtd-board-selection-toggle"
+			);
+			selectionToggleBtn.setAttribute("title", t("view.selection.title"));
+			selectionToggleBtn.addEventListener("click", () => {
+				this.selectionMode = !this.selectionMode;
+				selectionToggleBtn.toggleClass("is-active", this.selectionMode);
+				if (!this.selectionMode) this.selectedTaskIds.clear();
+				this.renderBoard();
+			});
 
-		const reviewBtn = this.createIconButton(toolbar, "clipboard-check", t("view.review.button"));
-		reviewBtn.setAttribute("title", t("view.review.title"));
-		reviewBtn.addEventListener("click", () => void this.plugin.openWeeklyReview());
+			const reviewBtn = this.createIconButton(toolbar, "clipboard-check", t("view.review.button"));
+			reviewBtn.setAttribute("title", t("view.review.title"));
+			reviewBtn.addEventListener("click", () => void this.plugin.openWeeklyReview());
 
-		const refreshBtn = this.createIconButton(toolbar, "refresh-cw", t("view.refresh.button"));
-		refreshBtn.setAttribute("title", t("view.refresh.title"));
-		refreshBtn.addEventListener("click", () => void this.refresh());
+			const refreshBtn = this.createIconButton(toolbar, "refresh-cw", t("view.refresh.button"));
+			refreshBtn.setAttribute("title", t("view.refresh.title"));
+			refreshBtn.addEventListener("click", () => void this.refresh());
+		}
 
 		this.bulkBarEl = container.createDiv({ cls: "gtd-bulk-bar" });
 		this.bulkBarEl.style.display = "none";
@@ -473,7 +517,11 @@ export class GtdBoardView extends ItemView {
 		if (!collapsed) {
 			const body = laneEl.createDiv({ cls: "gtd-lane-body" });
 			for (const task of laneTasksVisible) {
-				body.appendChild(this.renderCard(task, { showHomeLaneBadge: lane.isPlanned }));
+				// Drop-auf-Karte-Reihenfolge ergibt nur in echten (nicht-virtuellen) Lanes Sinn -
+				// die "Geplant"-Uebersicht zeigt Aufgaben ausserhalb ihrer eigentlichen Lane an.
+				body.appendChild(
+					this.renderCard(task, { showHomeLaneBadge: lane.isPlanned, enableReorder: !lane.isPlanned })
+				);
 			}
 		}
 
@@ -493,7 +541,10 @@ export class GtdBoardView extends ItemView {
 		this.renderBoard();
 	}
 
-	private renderCard(task: GtdTask, options: { showHomeLaneBadge?: boolean } = {}): HTMLElement {
+	private renderCard(
+		task: GtdTask,
+		options: { showHomeLaneBadge?: boolean; enableReorder?: boolean } = {}
+	): HTMLElement {
 		const card = document.createElement("div");
 		card.addClass("gtd-card");
 		card.addClass(`gtd-card-priority-${task.priority ?? "medium"}`);
@@ -507,6 +558,38 @@ export class GtdBoardView extends ItemView {
 		card.addEventListener("dragend", () => {
 			this.draggedTaskId = null;
 		});
+
+		// Drop direkt auf einer Karte (statt auf den leeren Lane-Hintergrund) reiht die gezogene
+		// Aufgabe an dieser Position ein - sowohl innerhalb derselben Lane als auch ueber Lanes
+		// hinweg (Lane-Wechsel + Positionierung in einem Zug). stopPropagation() verhindert, dass
+		// zusaetzlich der Drop-Handler der Lane feuert und die Aufgabe doppelt verschoben wird.
+		if (options.enableReorder) {
+			card.addEventListener("dragover", (evt) => {
+				if (!this.draggedTaskId || this.draggedTaskId === task.id) return;
+				evt.preventDefault();
+				evt.stopPropagation();
+				const rect = card.getBoundingClientRect();
+				const isAbove = evt.clientY < rect.top + rect.height / 2;
+				card.toggleClass("gtd-card-drop-above", isAbove);
+				card.toggleClass("gtd-card-drop-below", !isAbove);
+			});
+			card.addEventListener("dragleave", () => {
+				card.removeClass("gtd-card-drop-above");
+				card.removeClass("gtd-card-drop-below");
+			});
+			card.addEventListener("drop", (evt) => {
+				evt.preventDefault();
+				evt.stopPropagation();
+				card.removeClass("gtd-card-drop-above");
+				card.removeClass("gtd-card-drop-below");
+				const draggedId = this.draggedTaskId;
+				this.draggedTaskId = null;
+				if (!draggedId || draggedId === task.id) return;
+				const rect = card.getBoundingClientRect();
+				const position: "before" | "after" = evt.clientY < rect.top + rect.height / 2 ? "before" : "after";
+				void this.handleCardDrop(draggedId, task, position);
+			});
+		}
 
 		if (this.selectionMode) {
 			card.addClass("gtd-card-selectable");
@@ -710,6 +793,64 @@ export class GtdBoardView extends ItemView {
 	}
 
 	/**
+	 * Wird eine Karte auf einer anderen Karte (statt dem leeren Lane-Hintergrund) fallen gelassen,
+	 * reiht das die gezogene Aufgabe an dieser Position in die Ziel-Lane ein - ggf. inklusive
+	 * Lane-Wechsel in einem Zug. Eine Inline-Aufgabe wird dafuer zuerst in eine Datei-Aufgabe
+	 * umgewandelt (nur bei dieser Interaktion - reines Ueberziehen auf den Lane-Hintergrund bleibt
+	 * beim einfachen moveInlineTask), da nur Datei-Aufgaben einen persistierbaren order-Wert haben.
+	 * Manuelles Umsortieren ergibt nur im manuellen Sortiermodus visuell Sinn, deshalb schaltet ein
+	 * abgeschlossener Reorder-Drop automatisch dorthin um.
+	 */
+	private async handleCardDrop(draggedTaskId: string, targetTask: GtdTask, position: "before" | "after"): Promise<void> {
+		const draggedTask = this.tasks.find((t) => t.id === draggedTaskId);
+		if (!draggedTask || draggedTaskId === targetTask.id) return;
+		const targetLaneId = this.displayLaneId(targetTask);
+
+		if (this.plugin.settings.sortMode !== "manual") {
+			this.plugin.settings.sortMode = "manual";
+			if (this.sortSelectEl) this.sortSelectEl.value = "manual";
+			await this.plugin.saveSettings();
+		}
+
+		const laneTasks = this.tasks.filter((t) => this.displayLaneId(t) === targetLaneId);
+		const laneTasksSorted = this.sortTasks(laneTasks);
+		const orderedIds = laneTasksSorted.map((t) => t.id);
+		const newOrderedIds = reorderTaskIds(orderedIds, draggedTaskId, targetTask.id, position);
+
+		if (draggedTask.source === "inline") {
+			const newFile = await this.plugin.store.convertInlineToFile(
+				draggedTask,
+				{
+					title: draggedTask.title,
+					description: draggedTask.description,
+					due: draggedTask.due,
+					reminderAt: draggedTask.reminderAt,
+					priority: draggedTask.priority,
+					recurrence: draggedTask.recurrence,
+					contexts: draggedTask.contexts,
+					tags: draggedTask.tags,
+					delegatedTo: draggedTask.delegatedTo,
+					project: draggedTask.project,
+				},
+				targetLaneId
+			);
+			const newId = fileTaskId(newFile.path);
+			const idsWithNewId = newOrderedIds.map((id) => (id === draggedTaskId ? newId : id));
+			const convertedTask: GtdTask = {
+				...draggedTask,
+				id: newId,
+				laneId: targetLaneId,
+				filePath: newFile.path,
+				source: "file",
+			};
+			await this.plugin.store.reorderFileTask(convertedTask, targetLaneId, idsWithNewId);
+		} else {
+			await this.plugin.store.reorderFileTask(draggedTask, targetLaneId, newOrderedIds);
+		}
+		await this.refresh();
+	}
+
+	/**
 	 * Haken auf der Karte: markiert eine Aufgabe als erledigt (verschiebt sie in die
 	 * "Erledigt"-Lane, inkl. Wiederholungs-Logik) bzw. holt sie beim erneuten Klick wieder
 	 * in ihre Herkunfts-Lane zurueck. Nutzt dieselbe Verschiebe-Logik wie Drag & Drop.
@@ -730,16 +871,27 @@ export class GtdBoardView extends ItemView {
 			mode: "create",
 			laneId,
 			onSubmit: async (result) => {
-				await this.plugin.store.createTaskFile(
-					laneId,
-					result.title,
-					result.description,
-					result.priority,
-					result.contexts,
-					result.recurrence,
-					result.delegatedTo,
-					result.project
-				);
+				// Wird die Aufgabe direkt mit Faelligkeit in der Eingang-Lane angelegt, landet sie
+				// gleich in der "Naechste Aktionen"-Lane statt erst dort hinein verschoben zu werden.
+				const targetLaneId =
+					shouldPromoteFromInbox(
+						laneId,
+						result.due,
+						this.plugin.settings.lanes,
+						this.plugin.settings.autoPromoteInboxOnDueDate
+					) ?? laneId;
+				await this.plugin.store.createTaskFile({
+					laneId: targetLaneId,
+					title: result.title,
+					description: result.description,
+					priority: result.priority,
+					contexts: result.contexts,
+					recurrence: result.recurrence,
+					delegatedTo: result.delegatedTo,
+					project: result.project,
+					due: result.due,
+					reminderAt: result.reminderAt,
+				});
 				await this.refresh();
 			},
 		});
@@ -752,8 +904,17 @@ export class GtdBoardView extends ItemView {
 			laneId: task.laneId,
 			task,
 			onSubmit: async (result) => {
+				const promotedLaneId = shouldPromoteFromInbox(
+					task.laneId,
+					result.due,
+					this.plugin.settings.lanes,
+					this.plugin.settings.autoPromoteInboxOnDueDate
+				);
 				if (task.source === "file") {
 					await this.plugin.store.updateTaskFile(task, result);
+					if (promotedLaneId) {
+						await this.plugin.store.moveFileTask(task, promotedLaneId);
+					}
 				} else {
 					// Jede inhaltliche Aenderung an einer Inline-Aufgabe (Titel, Beschreibung,
 					// Faelligkeit/Erinnerung, Prioritaet oder Tags) ueberfuehrt sie in eine eigene
@@ -770,7 +931,7 @@ export class GtdBoardView extends ItemView {
 						(result.delegatedTo ?? "") !== (task.delegatedTo ?? "") ||
 						(result.project ?? "") !== (task.project ?? "");
 					if (changed) {
-						await this.plugin.store.convertInlineToFile(task, result);
+						await this.plugin.store.convertInlineToFile(task, result, promotedLaneId);
 					}
 				}
 				await this.refresh();

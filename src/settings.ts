@@ -59,6 +59,16 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName(t("settings.autoPromoteInbox.name"))
+			.setDesc(t("settings.autoPromoteInbox.desc"))
+			.addToggle((toggle) =>
+				toggle.setValue(settings.autoPromoteInboxOnDueDate).onChange(async (value) => {
+					settings.autoPromoteInboxOnDueDate = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
 			.setName(t("settings.defaultReminder.name"))
 			.setDesc(t("settings.defaultReminder.desc"))
 			.addText((text) =>
@@ -283,6 +293,26 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 					lane.isSomeday = value;
 					await this.plugin.saveSettings();
 					await this.plugin.refreshBoardViews();
+				})
+		);
+
+		row.addToggle((toggle) =>
+			toggle
+				.setTooltip(t("settings.lane.inboxTooltip"))
+				.setValue(!!lane.isInbox)
+				.onChange(async (value) => {
+					lane.isInbox = value;
+					await this.plugin.saveSettings();
+				})
+		);
+
+		row.addToggle((toggle) =>
+			toggle
+				.setTooltip(t("settings.lane.nextActionsTooltip"))
+				.setValue(!!lane.isNextActions)
+				.onChange(async (value) => {
+					lane.isNextActions = value;
+					await this.plugin.saveSettings();
 				})
 		);
 

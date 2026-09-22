@@ -7,6 +7,7 @@ import {
 	hasTimeComponent,
 	parseLocalDateTime,
 	parseQuickCapture,
+	shouldPromoteFromInbox,
 } from "./util";
 import { priorityLabel, recurrenceLabel, t } from "./i18n";
 
@@ -378,17 +379,26 @@ export class QuickCaptureModal extends Modal {
 		const parsed = parseQuickCapture(raw, this.plugin.settings.lanes);
 		const title = parsed && parsed.title.length > 0 ? parsed.title : raw;
 		const laneId = parsed?.laneId ?? this.laneId;
-		await this.plugin.store.createTaskFile(
-			laneId,
+		// Landet die Schnellerfassung mit Faelligkeit in der Eingang-Lane, gleich direkt in
+		// "Naechste Aktionen" anlegen, statt sie erst dorthin verschieben zu muessen.
+		const targetLaneId =
+			shouldPromoteFromInbox(
+				laneId,
+				parsed?.due,
+				this.plugin.settings.lanes,
+				this.plugin.settings.autoPromoteInboxOnDueDate
+			) ?? laneId;
+		await this.plugin.store.createTaskFile({
+			laneId: targetLaneId,
 			title,
-			"",
-			parsed?.priority,
-			parsed?.contexts,
-			parsed?.recurrence,
-			parsed?.delegatedTo,
-			parsed?.project,
-			parsed?.due
-		);
+			description: "",
+			priority: parsed?.priority,
+			contexts: parsed?.contexts,
+			recurrence: parsed?.recurrence,
+			delegatedTo: parsed?.delegatedTo,
+			project: parsed?.project,
+			due: parsed?.due,
+		});
 		await this.plugin.refreshBoardViews();
 		new Notice(t("quickCapture.captured", { title }));
 		this.close();

@@ -3,6 +3,7 @@ import { GtdTask } from "../src/types";
 import { t } from "../src/i18n";
 import {
 	addDays,
+	assignSequentialOrder,
 	bounceRecurringInlineLine,
 	buildIcsContent,
 	buildTaskFileContent,
@@ -18,8 +19,10 @@ import {
 	parseQuickCapture,
 	parseTaskFile,
 	priorityRank,
+	reorderTaskIds,
 	rewriteInlineLineForLane,
 	sanitizeFileName,
+	shouldPromoteFromInbox,
 	startOfWeek,
 	toTaskPriority,
 } from "../src/util";
@@ -631,5 +634,52 @@ describe("daysSince", () => {
 		const reference = new Date(2026, 8, 20, 12, 0, 0);
 		const almostTwoDaysAgo = reference.getTime() - 1.5 * 86_400_000;
 		expect(daysSince(almostTwoDaysAgo, reference)).toBe(1);
+	});
+});
+
+describe("shouldPromoteFromInbox", () => {
+	it("befoerdert eine Aufgabe aus der Eingang-Lane in die Naechste-Aktionen-Lane, wenn eine Faelligkeit gesetzt wird", () => {
+		expect(shouldPromoteFromInbox("inbox", "2026-09-25", DEFAULT_LANES, true)).toBe("next-actions");
+	});
+
+	it("greift nicht, wenn die Einstellung deaktiviert ist", () => {
+		expect(shouldPromoteFromInbox("inbox", "2026-09-25", DEFAULT_LANES, false)).toBeUndefined();
+	});
+
+	it("greift nicht ohne Faelligkeitsdatum", () => {
+		expect(shouldPromoteFromInbox("inbox", undefined, DEFAULT_LANES, true)).toBeUndefined();
+		expect(shouldPromoteFromInbox("inbox", "  ", DEFAULT_LANES, true)).toBeUndefined();
+	});
+
+	it("greift nicht, wenn die aktuelle Lane keine Eingang-Lane ist", () => {
+		expect(shouldPromoteFromInbox("waiting-for", "2026-09-25", DEFAULT_LANES, true)).toBeUndefined();
+	});
+
+	it("greift nicht, wenn keine Lane als isNextActions markiert ist", () => {
+		const lanesWithoutNextActions = DEFAULT_LANES.map((l) =>
+			l.isNextActions ? { ...l, isNextActions: false } : l
+		);
+		expect(shouldPromoteFromInbox("inbox", "2026-09-25", lanesWithoutNextActions, true)).toBeUndefined();
+	});
+});
+
+describe("reorderTaskIds / assignSequentialOrder", () => {
+	it("verschiebt eine ID vor eine andere innerhalb derselben Liste", () => {
+		const result = reorderTaskIds(["a", "b", "c", "d"], "d", "b", "before");
+		expect(result).toEqual(["a", "d", "b", "c"]);
+	});
+
+	it("verschiebt eine ID nach einer anderen innerhalb derselben Liste", () => {
+		const result = reorderTaskIds(["a", "b", "c", "d"], "a", "c", "after");
+		expect(result).toEqual(["b", "c", "a", "d"]);
+	});
+
+	it("fuegt eine bisher nicht enthaltene ID (Lane-Wechsel) an der Zielposition ein", () => {
+		const result = reorderTaskIds(["x", "y"], "new-id", "x", "after");
+		expect(result).toEqual(["x", "new-id", "y"]);
+	});
+
+	it("weist einer geordneten ID-Liste fortlaufende order-Werte zu", () => {
+		expect(assignSequentialOrder(["a", "d", "b", "c"])).toEqual({ a: 0, d: 1, b: 2, c: 3 });
 	});
 });

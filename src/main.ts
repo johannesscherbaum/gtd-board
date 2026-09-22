@@ -161,6 +161,9 @@ export default class GtdBoardPlugin extends Plugin {
 		if (typeof this.settings.somedayRefreshDays !== "number" || this.settings.somedayRefreshDays < 0) {
 			this.settings.somedayRefreshDays = DEFAULT_SETTINGS.somedayRefreshDays;
 		}
+		if (typeof this.settings.autoPromoteInboxOnDueDate !== "boolean") {
+			this.settings.autoPromoteInboxOnDueDate = DEFAULT_SETTINGS.autoPromoteInboxOnDueDate;
+		}
 	}
 
 	async saveSettings(): Promise<void> {
