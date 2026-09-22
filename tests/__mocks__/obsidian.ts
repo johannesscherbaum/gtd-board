@@ -73,3 +73,26 @@ export function normalizePath(path: string): string {
 export class Notice {
 	constructor(_message: string, _timeout?: number) {}
 }
+
+/** Minimaler TFile-Stand-in, nur fuer "instanceof TFile"-Checks und .path/.basename/.parent in store.ts. */
+export class TFile {
+	path: string;
+	basename: string;
+	parent: { path: string } | null;
+	stat: { mtime: number; ctime: number };
+	constructor(path: string) {
+		this.path = path;
+		const name = path.split("/").pop() ?? path;
+		this.basename = name.replace(/\.md$/, "");
+		const slash = path.lastIndexOf("/");
+		this.parent = slash === -1 ? { path: "" } : { path: path.slice(0, slash) };
+		this.stat = { mtime: Date.now(), ctime: Date.now() };
+	}
+}
+
+export class TFolder {
+	path: string;
+	constructor(path: string) {
+		this.path = path;
+	}
+}

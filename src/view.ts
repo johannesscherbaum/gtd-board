@@ -806,16 +806,21 @@ export class GtdBoardView extends ItemView {
 		if (!draggedTask || draggedTaskId === targetTask.id) return;
 		const targetLaneId = this.displayLaneId(targetTask);
 
+		// Wichtig: die aktuell SICHTBARE Reihenfolge der Lane muss ermittelt werden, BEVOR
+		// (falls noetig) auf "Manuell" umgeschaltet wird - sonst wird die neue Position relativ
+		// zu einer ganz anderen (order-basierten) Reihenfolge berechnet, als die, in der die
+		// Karten dem Nutzer gerade tatsaechlich angezeigt wurden (z. B. bei aktiver
+		// Prioritaets-Sortierung), und die Karte landet sichtbar an der falschen Stelle.
+		const laneTasks = this.tasks.filter((t) => this.displayLaneId(t) === targetLaneId);
+		const laneTasksSorted = this.sortTasks(laneTasks);
+		const orderedIds = laneTasksSorted.map((t) => t.id);
+		const newOrderedIds = reorderTaskIds(orderedIds, draggedTaskId, targetTask.id, position);
+
 		if (this.plugin.settings.sortMode !== "manual") {
 			this.plugin.settings.sortMode = "manual";
 			if (this.sortSelectEl) this.sortSelectEl.value = "manual";
 			await this.plugin.saveSettings();
 		}
-
-		const laneTasks = this.tasks.filter((t) => this.displayLaneId(t) === targetLaneId);
-		const laneTasksSorted = this.sortTasks(laneTasks);
-		const orderedIds = laneTasksSorted.map((t) => t.id);
-		const newOrderedIds = reorderTaskIds(orderedIds, draggedTaskId, targetTask.id, position);
 
 		if (draggedTask.source === "inline") {
 			const newFile = await this.plugin.store.convertInlineToFile(
