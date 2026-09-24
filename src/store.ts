@@ -230,20 +230,20 @@ export class GtdStore {
 		const content = await this.app.vault.read(file);
 		const { frontmatter, body } = parseTaskFile(content);
 
-		if (fields.due !== undefined) frontmatter.due = fields.due || undefined;
-		if (fields.reminderAt !== undefined) frontmatter.reminder = fields.reminderAt || undefined;
-		if (fields.priority !== undefined) {
-			frontmatter.priority = fields.priority !== "medium" ? fields.priority : undefined;
-		}
-		if (fields.recurrence !== undefined) frontmatter.recurrence = fields.recurrence;
-		if (fields.contexts !== undefined) frontmatter.contexts = fields.contexts;
-		if (fields.tags !== undefined) frontmatter.tags = fields.tags;
-		if (fields.delegatedTo !== undefined) {
-			frontmatter.delegatedTo = fields.delegatedTo.trim() ? fields.delegatedTo.trim() : undefined;
-		}
-		if (fields.project !== undefined) {
-			frontmatter.project = fields.project.trim() ? fields.project.trim() : undefined;
-		}
+		// Wichtig: TaskModal.submit() liefert bei jedem Speichern IMMER das vollstaendige
+		// Formular, nie nur geaenderte Felder - ein geleertes Feld (Faelligkeit, Erinnerung,
+		// Wiederholung, Delegation, Projekt) kommt hier als `undefined` an, genau wie ein nie
+		// gesetztes Feld. Ein "nur setzen, wenn !== undefined"-Guard wuerde das Leeren daher
+		// stillschweigend ignorieren und den alten Frontmatter-Wert stehen lassen - deshalb
+		// werden diese Felder hier direkt und bedingungslos aus `fields` uebernommen.
+		frontmatter.due = fields.due || undefined;
+		frontmatter.reminder = fields.reminderAt || undefined;
+		frontmatter.priority = fields.priority && fields.priority !== "medium" ? fields.priority : undefined;
+		frontmatter.recurrence = fields.recurrence;
+		frontmatter.contexts = fields.contexts && fields.contexts.length > 0 ? fields.contexts : undefined;
+		frontmatter.tags = fields.tags && fields.tags.length > 0 ? fields.tags : undefined;
+		frontmatter.delegatedTo = fields.delegatedTo?.trim() ? fields.delegatedTo.trim() : undefined;
+		frontmatter.project = fields.project?.trim() ? fields.project.trim() : undefined;
 
 		const newBody = fields.description !== undefined ? fields.description : body;
 		const newContent = buildTaskFileContent(frontmatter, newBody);
