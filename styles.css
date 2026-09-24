@@ -231,10 +231,15 @@
 	padding: 24px;
 }
 
+/* Lanes wachsen/schrumpfen dynamisch mit dem verfuegbaren Platz: bei wenigen offenen Lanes
+   teilen sie sich die volle Breite (bis max-width), bei vielen schrumpfen sie bis min-width
+   und das Board scrollt horizontal (siehe .gtd-board { overflow-x: auto }). Eingeklappte
+   Lanes (.gtd-lane-collapsed) nehmen daran nicht teil und bleiben fest schmal - dadurch
+   verteilt sich die frei werdende Breite automatisch auf die verbleibenden offenen Lanes. */
 .gtd-lane {
-	min-width: 260px;
-	max-width: 320px;
-	flex: 0 0 auto;
+	flex: 1 1 260px;
+	min-width: 220px;
+	max-width: 420px;
 	background: var(--background-secondary);
 	border-radius: 8px;
 	border-top: 4px solid var(--lane-color, var(--interactive-accent));
@@ -271,6 +276,7 @@
 
 /* Eingeklappte Lane: schmale vertikale Box, nur Kopfzeile, kein Body. */
 .gtd-lane-collapsed {
+	flex: 0 0 40px;
 	min-width: 40px;
 	max-width: 40px;
 	width: 40px;
