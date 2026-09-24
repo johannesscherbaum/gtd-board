@@ -39,11 +39,15 @@
 	border-color: var(--interactive-accent);
 }
 
-.gtd-toolbar-inline-icon select,
-.gtd-toolbar-inline-icon input {
-	border: none !important;
-	background: transparent !important;
-	box-shadow: none !important;
+/* Ueberschreibt Obsidians eigene select/input-Standardstyles - statt !important reicht die
+   Spezifitaet ueber den immer vorhandenen .gtd-board-container-Vorfahren (select/input liegen
+   hier gleichauf mit Obsidians eigenen Regeln, ohne !important gewinnt sonst die Deklarations-
+   reihenfolge). */
+.gtd-board-container .gtd-toolbar-inline-icon select,
+.gtd-board-container .gtd-toolbar-inline-icon input {
+	border: none;
+	background: transparent;
+	box-shadow: none;
 	padding-left: 0;
 	padding-right: 0;
 }
@@ -297,8 +301,6 @@
 	writing-mode: vertical-rl;
 	transform: rotate(180deg);
 	white-space: nowrap;
-	overflow: visible;
-	text-overflow: unset;
 	flex: none;
 	max-height: 240px;
 	text-overflow: ellipsis;
