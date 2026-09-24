@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, PluginSettingTab, Setting, SettingDefinitionItem } from "obsidian";
 import type GtdBoardPlugin from "./main";
 import { LaneConfig } from "./types";
 import { t } from "./i18n";
@@ -9,216 +9,272 @@ function newLaneId(): string {
 	return `lane-${Date.now()}-${laneIdCounter}`;
 }
 
+/**
+ * Deklarative Settings-API (getSettingDefinitions()) statt der seit 1.13.0 veralteten
+ * display()-Methode - dadurch tauchen die Einstellungen auch in Obsidians globaler
+ * Einstellungs-Suche auf. Fast alle Zeilen nutzen weiterhin `render`, statt jede einzelne
+ * auf den `control`/`key`-Mechanismus umzustellen: die meisten Zeilen loesen beim Aendern
+ * Seiteneffekte aus (refreshBoardViews(), restartReminderScheduler(), exportIcs()) und die
+ * Swimlane-Liste ist ein dynamisches Array mit mehreren Controls pro Zeile (Farbe, Name, Tag,
+ * vier Toggles, WIP-Limit, Verschieben/Loeschen) - das passt nicht in das 1:1-Modell von
+ * `control`. `render` ist dafuer der von Obsidian selbst vorgesehene Ausweg und behaelt Name/
+ * Beschreibung jeder Zeile fuer die Suche bei.
+ */
 export class GtdBoardSettingTab extends PluginSettingTab {
 	constructor(app: App, private plugin: GtdBoardPlugin) {
 		super(app, plugin);
 	}
 
-	display(): void {
-		const { containerEl } = this;
-		containerEl.empty();
+	getSettingDefinitions(): SettingDefinitionItem[] {
 		const settings = this.plugin.settings;
 
-		new Setting(containerEl).setName(t("settings.heading")).setHeading();
-
-		new Setting(containerEl)
-			.setName(t("settings.folder.name"))
-			.setDesc(t("settings.folder.desc"))
-			.addText((text) =>
-				text
-					.setPlaceholder(t("settings.folder.placeholder"))
-					.setValue(settings.watchFolder)
-					.onChange(async (value) => {
-						settings.watchFolder = value.trim();
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName(t("settings.taskFolder.name"))
-			.setDesc(t("settings.taskFolder.desc"))
-			.addText((text) =>
-				text
-					.setPlaceholder(t("settings.taskFolder.placeholder"))
-					.setValue(settings.taskFilesFolder)
-					.onChange(async (value) => {
-						settings.taskFilesFolder = value.trim();
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName(t("settings.inlineCheckboxes.name"))
-			.setDesc(t("settings.inlineCheckboxes.desc"))
-			.addToggle((toggle) =>
-				toggle.setValue(settings.scanInlineTasks).onChange(async (value) => {
-					settings.scanInlineTasks = value;
-					await this.plugin.saveSettings();
-					await this.plugin.refreshBoardViews();
-				})
-			);
-
-		new Setting(containerEl)
-			.setName(t("settings.autoPromoteInbox.name"))
-			.setDesc(t("settings.autoPromoteInbox.desc"))
-			.addToggle((toggle) =>
-				toggle.setValue(settings.autoPromoteInboxOnDueDate).onChange(async (value) => {
-					settings.autoPromoteInboxOnDueDate = value;
-					await this.plugin.saveSettings();
-				})
-			);
-
-		new Setting(containerEl)
-			.setName(t("settings.defaultReminder.name"))
-			.setDesc(t("settings.defaultReminder.desc"))
-			.addText((text) =>
-				text
-					.setValue(String(settings.defaultReminderOffsetMinutes))
-					.onChange(async (value) => {
-						const n = Number(value);
-						if (!isNaN(n) && n >= 0) {
-							settings.defaultReminderOffsetMinutes = n;
-							await this.plugin.saveSettings();
-						}
-					})
-			);
-
-		new Setting(containerEl)
-			.setName(t("settings.checkInterval.name"))
-			.setDesc(t("settings.checkInterval.desc"))
-			.addText((text) =>
-				text.setValue(String(settings.reminderCheckIntervalSeconds)).onChange(async (value) => {
-					const n = Number(value);
-					if (!isNaN(n) && n >= 15) {
-						settings.reminderCheckIntervalSeconds = n;
-						await this.plugin.saveSettings();
-						this.plugin.restartReminderScheduler();
-					}
-				})
-			);
-
-		new Setting(containerEl).setName(t("settings.archivingHeading")).setHeading();
-
-		new Setting(containerEl)
-			.setName(t("settings.autoArchive.name"))
-			.setDesc(t("settings.autoArchive.desc"))
-			.addText((text) =>
-				text.setValue(String(settings.archiveAfterDays)).onChange(async (value) => {
-					const n = Number(value);
-					if (!isNaN(n) && n >= 0) {
-						settings.archiveAfterDays = n;
-						await this.plugin.saveSettings();
-					}
-				})
-			);
-
-		new Setting(containerEl)
-			.setName(t("settings.archiveFolder.name"))
-			.setDesc(t("settings.archiveFolder.desc", { path: `${settings.taskFilesFolder}/Archiv` }))
-			.addText((text) =>
-				text
-					.setPlaceholder(t("settings.archiveFolder.placeholder", { path: `${settings.taskFilesFolder}/Archiv` }))
-					.setValue(settings.archiveFolder)
-					.onChange(async (value) => {
-						settings.archiveFolder = value.trim();
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName(t("settings.refreshHeading"))
-			.setDesc(t("settings.refreshDesc"))
-			.setHeading();
-
-		new Setting(containerEl)
-			.setName(t("settings.delegateFollowUp.name"))
-			.setDesc(t("settings.delegateFollowUp.desc"))
-			.addText((text) =>
-				text.setValue(String(settings.delegateFollowUpDays)).onChange(async (value) => {
-					const n = Number(value);
-					if (!isNaN(n) && n >= 0) {
-						settings.delegateFollowUpDays = n;
-						await this.plugin.saveSettings();
-						await this.plugin.refreshBoardViews();
-					}
-				})
-			);
-
-		new Setting(containerEl)
-			.setName(t("settings.somedayRefresh.name"))
-			.setDesc(t("settings.somedayRefresh.desc"))
-			.addText((text) =>
-				text.setValue(String(settings.somedayRefreshDays)).onChange(async (value) => {
-					const n = Number(value);
-					if (!isNaN(n) && n >= 0) {
-						settings.somedayRefreshDays = n;
-						await this.plugin.saveSettings();
-						await this.plugin.refreshBoardViews();
-					}
-				})
-			);
-
-		new Setting(containerEl)
-			.setName(t("settings.icsHeading"))
-			.setDesc(t("settings.icsDesc"))
-			.setHeading();
-
-		new Setting(containerEl)
-			.setName(t("settings.icsEnable.name"))
-			.setDesc(t("settings.icsEnable.desc"))
-			.addToggle((toggle) =>
-				toggle.setValue(settings.icsExportEnabled).onChange(async (value) => {
-					settings.icsExportEnabled = value;
-					await this.plugin.saveSettings();
-					if (value) await this.plugin.exportIcs(false);
-				})
-			);
-
-		new Setting(containerEl)
-			.setName(t("settings.icsPath.name"))
-			.setDesc(t("settings.icsPath.desc"))
-			.addText((text) =>
-				text
-					.setPlaceholder(t("settings.icsPath.placeholder"))
-					.setValue(settings.icsExportPath)
-					.onChange(async (value) => {
-						settings.icsExportPath = value.trim();
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl).addButton((btn) =>
-			btn.setButtonText(t("settings.exportNow")).onClick(() => void this.plugin.exportIcs(true))
-		);
-
-		new Setting(containerEl)
-			.setName(t("settings.swimlanesHeading"))
-			.setDesc(t("settings.swimlanesDesc"))
-			.setHeading();
-
-		const laneList = containerEl.createDiv({ cls: "gtd-settings-lane-list" });
-		settings.lanes.forEach((lane, index) => this.renderLaneRow(laneList, lane, index));
-
-		new Setting(containerEl).addButton((btn) =>
-			btn
-				.setButtonText(t("settings.addLane"))
-				.setCta()
-				.onClick(async () => {
-					settings.lanes.push({
-						id: newLaneId(),
-						name: t("settings.newLaneName"),
-						color: "#8e8e93",
-						tag: "gtd/neu",
-					});
-					await this.plugin.saveSettings();
-					this.display();
-				})
-		);
+		return [
+			{
+				type: "group",
+				heading: t("settings.heading"),
+				items: [
+					{
+						name: t("settings.folder.name"),
+						desc: t("settings.folder.desc"),
+						render: (setting) => {
+							setting.addText((text) =>
+								text
+									.setPlaceholder(t("settings.folder.placeholder"))
+									.setValue(settings.watchFolder)
+									.onChange(async (value) => {
+										settings.watchFolder = value.trim();
+										await this.plugin.saveSettings();
+									})
+							);
+						},
+					},
+					{
+						name: t("settings.taskFolder.name"),
+						desc: t("settings.taskFolder.desc"),
+						render: (setting) => {
+							setting.addText((text) =>
+								text
+									.setPlaceholder(t("settings.taskFolder.placeholder"))
+									.setValue(settings.taskFilesFolder)
+									.onChange(async (value) => {
+										settings.taskFilesFolder = value.trim();
+										await this.plugin.saveSettings();
+									})
+							);
+						},
+					},
+					{
+						name: t("settings.inlineCheckboxes.name"),
+						desc: t("settings.inlineCheckboxes.desc"),
+						render: (setting) => {
+							setting.addToggle((toggle) =>
+								toggle.setValue(settings.scanInlineTasks).onChange(async (value) => {
+									settings.scanInlineTasks = value;
+									await this.plugin.saveSettings();
+									await this.plugin.refreshBoardViews();
+								})
+							);
+						},
+					},
+					{
+						name: t("settings.autoPromoteInbox.name"),
+						desc: t("settings.autoPromoteInbox.desc"),
+						render: (setting) => {
+							setting.addToggle((toggle) =>
+								toggle.setValue(settings.autoPromoteInboxOnDueDate).onChange(async (value) => {
+									settings.autoPromoteInboxOnDueDate = value;
+									await this.plugin.saveSettings();
+								})
+							);
+						},
+					},
+					{
+						name: t("settings.defaultReminder.name"),
+						desc: t("settings.defaultReminder.desc"),
+						render: (setting) => {
+							setting.addText((text) =>
+								text.setValue(String(settings.defaultReminderOffsetMinutes)).onChange(async (value) => {
+									const n = Number(value);
+									if (!isNaN(n) && n >= 0) {
+										settings.defaultReminderOffsetMinutes = n;
+										await this.plugin.saveSettings();
+									}
+								})
+							);
+						},
+					},
+					{
+						name: t("settings.checkInterval.name"),
+						desc: t("settings.checkInterval.desc"),
+						render: (setting) => {
+							setting.addText((text) =>
+								text.setValue(String(settings.reminderCheckIntervalSeconds)).onChange(async (value) => {
+									const n = Number(value);
+									if (!isNaN(n) && n >= 15) {
+										settings.reminderCheckIntervalSeconds = n;
+										await this.plugin.saveSettings();
+										this.plugin.restartReminderScheduler();
+									}
+								})
+							);
+						},
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: t("settings.archivingHeading"),
+				items: [
+					{
+						name: t("settings.autoArchive.name"),
+						desc: t("settings.autoArchive.desc"),
+						render: (setting) => {
+							setting.addText((text) =>
+								text.setValue(String(settings.archiveAfterDays)).onChange(async (value) => {
+									const n = Number(value);
+									if (!isNaN(n) && n >= 0) {
+										settings.archiveAfterDays = n;
+										await this.plugin.saveSettings();
+									}
+								})
+							);
+						},
+					},
+					{
+						name: t("settings.archiveFolder.name"),
+						desc: t("settings.archiveFolder.desc", { path: `${settings.taskFilesFolder}/Archiv` }),
+						render: (setting) => {
+							setting.addText((text) =>
+								text
+									.setPlaceholder(t("settings.archiveFolder.placeholder", { path: `${settings.taskFilesFolder}/Archiv` }))
+									.setValue(settings.archiveFolder)
+									.onChange(async (value) => {
+										settings.archiveFolder = value.trim();
+										await this.plugin.saveSettings();
+									})
+							);
+						},
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: t("settings.refreshHeading"),
+				items: [
+					{
+						name: t("settings.delegateFollowUp.name"),
+						desc: t("settings.delegateFollowUp.desc"),
+						render: (setting) => {
+							setting.addText((text) =>
+								text.setValue(String(settings.delegateFollowUpDays)).onChange(async (value) => {
+									const n = Number(value);
+									if (!isNaN(n) && n >= 0) {
+										settings.delegateFollowUpDays = n;
+										await this.plugin.saveSettings();
+										await this.plugin.refreshBoardViews();
+									}
+								})
+							);
+						},
+					},
+					{
+						name: t("settings.somedayRefresh.name"),
+						desc: t("settings.somedayRefresh.desc"),
+						render: (setting) => {
+							setting.addText((text) =>
+								text.setValue(String(settings.somedayRefreshDays)).onChange(async (value) => {
+									const n = Number(value);
+									if (!isNaN(n) && n >= 0) {
+										settings.somedayRefreshDays = n;
+										await this.plugin.saveSettings();
+										await this.plugin.refreshBoardViews();
+									}
+								})
+							);
+						},
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: t("settings.icsHeading"),
+				desc: t("settings.icsDesc"),
+				items: [
+					{
+						name: t("settings.icsEnable.name"),
+						desc: t("settings.icsEnable.desc"),
+						render: (setting) => {
+							setting.addToggle((toggle) =>
+								toggle.setValue(settings.icsExportEnabled).onChange(async (value) => {
+									settings.icsExportEnabled = value;
+									await this.plugin.saveSettings();
+									if (value) await this.plugin.exportIcs(false);
+								})
+							);
+						},
+					},
+					{
+						name: t("settings.icsPath.name"),
+						desc: t("settings.icsPath.desc"),
+						render: (setting) => {
+							setting.addText((text) =>
+								text
+									.setPlaceholder(t("settings.icsPath.placeholder"))
+									.setValue(settings.icsExportPath)
+									.onChange(async (value) => {
+										settings.icsExportPath = value.trim();
+										await this.plugin.saveSettings();
+									})
+							);
+						},
+					},
+					{
+						name: t("settings.exportNow"),
+						render: (setting) => {
+							setting.addButton((btn) =>
+								btn.setButtonText(t("settings.exportNow")).onClick(() => void this.plugin.exportIcs(true))
+							);
+						},
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: t("settings.swimlanesHeading"),
+				desc: t("settings.swimlanesDesc"),
+				items: [
+					...settings.lanes.map((lane, index) => ({
+						name: lane.name || t("settings.newLaneName"),
+						render: (setting: Setting) => this.renderLaneRow(setting, lane, index),
+					})),
+					{
+						name: t("settings.addLane"),
+						render: (setting: Setting) => {
+							setting.addButton((btn) =>
+								btn
+									.setButtonText(t("settings.addLane"))
+									.setCta()
+									.onClick(async () => {
+										settings.lanes.push({
+											id: newLaneId(),
+											name: t("settings.newLaneName"),
+											color: "#8e8e93",
+											tag: "gtd/neu",
+										});
+										await this.plugin.saveSettings();
+										this.update();
+									})
+							);
+						},
+					},
+				],
+			},
+		];
 	}
 
-	private renderLaneRow(container: HTMLElement, lane: LaneConfig, index: number): void {
+	private renderLaneRow(row: Setting, lane: LaneConfig, index: number): void {
 		const settings = this.plugin.settings;
-		const row = new Setting(container).setClass("gtd-lane-setting-row");
+		row.setClass("gtd-lane-setting-row");
 
 		row.addColorPicker((cp) =>
 			cp.setValue(lane.color).onChange(async (value) => {
@@ -265,7 +321,7 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 					if (value) lane.isPlanned = false;
 					await this.plugin.saveSettings();
 					await this.plugin.refreshBoardViews();
-					this.display();
+					this.update();
 				})
 		);
 
@@ -278,7 +334,7 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 					if (value) lane.isDone = false;
 					await this.plugin.saveSettings();
 					await this.plugin.refreshBoardViews();
-					this.display();
+					this.update();
 				})
 		);
 
@@ -346,7 +402,7 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 						settings.lanes[index - 1],
 					];
 					await this.plugin.saveSettings();
-					this.display();
+					this.update();
 				})
 		);
 
@@ -362,7 +418,7 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 						settings.lanes[index + 1],
 					];
 					await this.plugin.saveSettings();
-					this.display();
+					this.update();
 				})
 		);
 
@@ -373,7 +429,7 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 				.onClick(async () => {
 					settings.lanes.splice(index, 1);
 					await this.plugin.saveSettings();
-					this.display();
+					this.update();
 					await this.plugin.refreshBoardViews();
 				})
 		);

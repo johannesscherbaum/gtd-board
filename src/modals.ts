@@ -1,4 +1,4 @@
-import { App, ButtonComponent, Component, MarkdownRenderer, Modal, Notice, Setting } from "obsidian";
+import { App, ButtonComponent, Component, ConfirmationModal, MarkdownRenderer, Modal, Notice, Setting } from "obsidian";
 import type GtdBoardPlugin from "./main";
 import { GtdTask, LaneConfig, RecurrenceRule, TaskPriority } from "./types";
 import {
@@ -555,13 +555,14 @@ export class ReviewModal extends Modal {
 }
 
 /**
- * Einfacher Bestaetigungsdialog auf Basis von Modal/Setting/ButtonComponent statt der
- * eingebauten ConfirmationModal-Klasse - die gibt es erst seit Obsidian 1.13.0, unser
- * minAppVersion ist aber 1.5.0.
+ * Einfacher Bestaetigungsdialog auf Basis der eingebauten ConfirmationModal-Klasse
+ * (seit Obsidian 1.13.0, unsere minAppVersion). ConfirmationButton.onClick() schliesst den
+ * Dialog nach dem Klick automatisch, deshalb reicht ein einziges Modal.onClose() fuer alle
+ * Wege, den Dialog zu verlassen (Bestaetigen, Abbrechen, Escape) - finish() ist idempotent.
  */
 export function confirmDialog(app: App, message: string): Promise<boolean> {
 	return new Promise((resolve) => {
-		const modal = new Modal(app);
+		const modal = new ConfirmationModal(app);
 		let resolved = false;
 		const finish = (result: boolean) => {
 			if (resolved) return;
@@ -570,22 +571,8 @@ export function confirmDialog(app: App, message: string): Promise<boolean> {
 		};
 
 		modal.contentEl.createEl("p", { text: message });
-
-		new Setting(modal.contentEl)
-			.addButton((btn) =>
-				btn.setButtonText(t("view.bulk.delete"))
-					.setWarning()
-					.onClick(() => {
-						finish(true);
-						modal.close();
-					})
-			)
-			.addButton((btn) =>
-				btn.setButtonText(t("taskModal.cancel")).onClick(() => {
-					finish(false);
-					modal.close();
-				})
-			);
+		modal.addButton((btn) => btn.setButtonText(t("view.bulk.delete")).setDestructive().onClick(() => finish(true)));
+		modal.addCancelButton(t("taskModal.cancel"));
 
 		modal.onClose = () => finish(false);
 		modal.open();
