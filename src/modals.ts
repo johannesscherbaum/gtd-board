@@ -3,7 +3,6 @@ import type GtdBoardPlugin from "./main";
 import { GtdTask, LaneConfig, RecurrenceRule, TaskPriority } from "./types";
 import {
 	daysSince,
-	formatLocalDateTime,
 	hasTimeComponent,
 	parseLocalDateTime,
 	parseQuickCapture,
@@ -151,12 +150,12 @@ export class TaskModal extends Modal {
 		const updateDescriptionView = () => {
 			if (this.descriptionShowingPreview) {
 				renderPreview();
-				textarea.style.display = "none";
-				preview.style.display = "";
+				textarea.setCssStyles({ display: "none" });
+				preview.setCssStyles({ display: "" });
 				descToggleButton.setButtonText(t("taskModal.editButton"));
 			} else {
-				textarea.style.display = "";
-				preview.style.display = "none";
+				textarea.setCssStyles({ display: "" });
+				preview.setCssStyles({ display: "none" });
 				descToggleButton.setButtonText(t("taskModal.previewButton"));
 			}
 		};
@@ -421,6 +420,10 @@ export class ReviewModal extends Modal {
 	private queue: GtdTask[] = [];
 	private index = 0;
 	private reviewedCount = 0;
+	/** Fuer MarkdownRenderer.render() der Aufgaben-Beschreibung - in einer Variable gehalten,
+	 * damit unload() beim Schliessen aufgeraeumt werden kann statt bei jedem render() eine
+	 * neue, nie freigegebene Component zu erzeugen. */
+	private previewComponent = new Component();
 
 	constructor(app: App, private plugin: GtdBoardPlugin, tasks: GtdTask[]) {
 		super(app);
@@ -479,7 +482,7 @@ export class ReviewModal extends Modal {
 		}
 		if (task.description.trim().length > 0) {
 			const desc = contentEl.createDiv({ cls: "gtd-review-description" });
-			void MarkdownRenderer.render(this.app, task.description, desc, task.filePath, new Component());
+			void MarkdownRenderer.render(this.app, task.description, desc, task.filePath, this.previewComponent);
 		}
 
 		const buttonRow = new Setting(contentEl).setClass("gtd-review-actions");
@@ -546,6 +549,45 @@ export class ReviewModal extends Modal {
 	}
 
 	onClose(): void {
+		this.previewComponent.unload();
 		this.contentEl.empty();
 	}
+}
+
+/**
+ * Einfacher Bestaetigungsdialog auf Basis von Modal/Setting/ButtonComponent statt der
+ * eingebauten ConfirmationModal-Klasse - die gibt es erst seit Obsidian 1.13.0, unser
+ * minAppVersion ist aber 1.5.0.
+ */
+export function confirmDialog(app: App, message: string): Promise<boolean> {
+	return new Promise((resolve) => {
+		const modal = new Modal(app);
+		let resolved = false;
+		const finish = (result: boolean) => {
+			if (resolved) return;
+			resolved = true;
+			resolve(result);
+		};
+
+		modal.contentEl.createEl("p", { text: message });
+
+		new Setting(modal.contentEl)
+			.addButton((btn) =>
+				btn.setButtonText(t("view.bulk.delete"))
+					.setWarning()
+					.onClick(() => {
+						finish(true);
+						modal.close();
+					})
+			)
+			.addButton((btn) =>
+				btn.setButtonText(t("taskModal.cancel")).onClick(() => {
+					finish(false);
+					modal.close();
+				})
+			);
+
+		modal.onClose = () => finish(false);
+		modal.open();
+	});
 }

@@ -201,8 +201,11 @@
 	padding: 12px 0;
 }
 
+/* display: flex ist der Ausgangszustand aus CSS-Sicht - sichtbar/unsichtbar wird per
+   show()/hide() (setzt/entfernt nur "display: none" inline) vom View gesteuert, initial
+   ausgeblendet ueber this.bulkBarEl.hide() gleich nach dem Erzeugen. */
 .gtd-bulk-bar {
-	display: none;
+	display: flex;
 	align-items: center;
 	gap: 8px;
 	padding: 6px 8px;
@@ -694,8 +697,11 @@
 
 /* Dropdown-Menu unterhalb der Toolbar: alle Filter/Ansicht/Sortierung sowie Mehrfachauswahl,
    Wochenrueckblick und Aktualisieren stehen hier untereinander, jeweils ueber die volle
-   Breite - Sichtbarkeit wird per Inline-style (display: none/flex) vom Burger-Button gesteuert. */
+   Breite - Sichtbarkeit wird vom Burger-Button per show()/hide() gesteuert (Obsidian setzt/
+   entfernt dabei nur "display: none" inline, die eigentliche "flex column"-Anzeige kommt von
+   dieser Regel hier). */
 .is-mobile .gtd-board-mobile-menu {
+	display: flex;
 	flex-direction: column;
 	align-items: stretch;
 	gap: 8px;

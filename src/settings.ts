@@ -19,7 +19,7 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 		containerEl.empty();
 		const settings = this.plugin.settings;
 
-		containerEl.createEl("h2", { text: t("settings.heading") });
+		new Setting(containerEl).setName(t("settings.heading")).setHeading();
 
 		new Setting(containerEl)
 			.setName(t("settings.folder.name"))
@@ -97,7 +97,7 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 				})
 			);
 
-		containerEl.createEl("h3", { text: t("settings.archivingHeading") });
+		new Setting(containerEl).setName(t("settings.archivingHeading")).setHeading();
 
 		new Setting(containerEl)
 			.setName(t("settings.autoArchive.name"))
@@ -125,11 +125,10 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 					})
 			);
 
-		containerEl.createEl("h3", { text: t("settings.refreshHeading") });
-		containerEl.createEl("p", {
-			cls: "setting-item-description",
-			text: t("settings.refreshDesc"),
-		});
+		new Setting(containerEl)
+			.setName(t("settings.refreshHeading"))
+			.setDesc(t("settings.refreshDesc"))
+			.setHeading();
 
 		new Setting(containerEl)
 			.setName(t("settings.delegateFollowUp.name"))
@@ -159,11 +158,10 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 				})
 			);
 
-		containerEl.createEl("h3", { text: t("settings.icsHeading") });
-		containerEl.createEl("p", {
-			cls: "setting-item-description",
-			text: t("settings.icsDesc"),
-		});
+		new Setting(containerEl)
+			.setName(t("settings.icsHeading"))
+			.setDesc(t("settings.icsDesc"))
+			.setHeading();
 
 		new Setting(containerEl)
 			.setName(t("settings.icsEnable.name"))
@@ -193,11 +191,10 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 			btn.setButtonText(t("settings.exportNow")).onClick(() => void this.plugin.exportIcs(true))
 		);
 
-		containerEl.createEl("h3", { text: t("settings.swimlanesHeading") });
-		containerEl.createEl("p", {
-			cls: "setting-item-description",
-			text: t("settings.swimlanesDesc"),
-		});
+		new Setting(containerEl)
+			.setName(t("settings.swimlanesHeading"))
+			.setDesc(t("settings.swimlanesDesc"))
+			.setHeading();
 
 		const laneList = containerEl.createDiv({ cls: "gtd-settings-lane-list" });
 		settings.lanes.forEach((lane, index) => this.renderLaneRow(laneList, lane, index));
@@ -333,7 +330,7 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 				});
 			text.inputEl.type = "number";
 			text.inputEl.min = "1";
-			text.inputEl.style.width = "70px";
+			text.inputEl.setCssStyles({ width: "70px" });
 			text.inputEl.title = t("settings.lane.wipLimitTitle");
 		});
 

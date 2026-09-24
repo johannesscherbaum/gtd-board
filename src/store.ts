@@ -422,7 +422,9 @@ export class GtdStore {
 		const file = this.app.vault.getAbstractFileByPath(task.filePath);
 		if (!(file instanceof TFile)) return;
 		if (task.source === "file") {
-			await this.app.vault.trash(file, true);
+			// FileManager.trashFile() statt Vault.trash(), damit die Loeschung/System-Papierkorb-
+			// Einstellung des Nutzers ("Systemeinstellungen" vs. ".trash"-Ordner) respektiert wird.
+			await this.app.fileManager.trashFile(file);
 			return;
 		}
 		const content = await this.app.vault.read(file);

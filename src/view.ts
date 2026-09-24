@@ -20,7 +20,7 @@ import { getLocale, priorityLabel, recurrenceLabel, t } from "./i18n";
 function intlLocale(): string {
 	return getLocale() === "de" ? "de-DE" : "en-US";
 }
-import { TaskModal } from "./modals";
+import { TaskModal, confirmDialog } from "./modals";
 
 export const GTD_BOARD_VIEW_TYPE = "gtd-board-view";
 
@@ -188,24 +188,24 @@ export class GtdBoardView extends ItemView {
 			menuBtn.setAttribute("aria-label", t("view.overflow.title"));
 			menuBtn.setAttribute("title", t("view.overflow.title"));
 			mobileMenuEl = container.createDiv({ cls: "gtd-board-mobile-menu" });
-			mobileMenuEl.style.display = "none";
+			mobileMenuEl.hide();
 			controlsParent = mobileMenuEl;
 
 			const btn = menuBtn;
 			const panel = mobileMenuEl;
 			closeMobileMenu = () => {
-				panel.style.display = "none";
+				panel.hide();
 				btn.toggleClass("is-active", false);
 			};
 			btn.addEventListener("click", (evt) => {
 				evt.stopPropagation();
-				const isOpen = panel.style.display !== "none";
-				panel.style.display = isOpen ? "none" : "flex";
+				const isOpen = panel.isShown();
+				panel.toggle(!isOpen);
 				btn.toggleClass("is-active", !isOpen);
 			});
 			// Klick ausserhalb schliesst das Dropdown wieder.
 			this.registerDomEvent(document, "click", (evt) => {
-				if (panel.style.display === "none") return;
+				if (!panel.isShown()) return;
 				if (panel.contains(evt.target as Node) || btn.contains(evt.target as Node)) return;
 				closeMobileMenu();
 			});
@@ -241,7 +241,7 @@ export class GtdBoardView extends ItemView {
 			this.viewMode = viewModeSelect.value as ViewMode;
 			// Sortier-Dropdown betrifft nur die Lane-interne Reihenfolge im Kanban - in Agenda und
 			// Woche ist die Sortierung fest (nach Faelligkeit bzw. Kalendertag).
-			this.sortSelectEl.style.display = this.viewMode === "board" ? "" : "none";
+			this.sortSelectEl.toggle(this.viewMode === "board");
 			this.renderBoard();
 		});
 
@@ -287,7 +287,7 @@ export class GtdBoardView extends ItemView {
 		});
 
 		this.bulkBarEl = container.createDiv({ cls: "gtd-bulk-bar" });
-		this.bulkBarEl.style.display = "none";
+		this.bulkBarEl.hide();
 
 		this.boardEl = container.createDiv({ cls: "gtd-board" });
 	}
@@ -318,8 +318,7 @@ export class GtdBoardView extends ItemView {
 
 	/** Agenda-Ansicht: alle offenen Aufgaben ueber alle Lanes hinweg, flach und nach Faelligkeit sortiert. */
 	private renderAgenda(): HTMLElement {
-		const container = document.createElement("div");
-		container.addClass("gtd-agenda");
+		const container = createDiv({ cls: "gtd-agenda" });
 
 		const tasksAll = this.tasks.filter((t) => !t.done);
 		const tasksFiltered = tasksAll.filter((t) => this.matchesFilter(t));
@@ -342,8 +341,7 @@ export class GtdBoardView extends ItemView {
 	 * zur vorherigen/naechsten Woche sowie einem Sprung zurueck zur aktuellen Woche.
 	 */
 	private renderWeek(): HTMLElement {
-		const container = document.createElement("div");
-		container.addClass("gtd-week");
+		const container = createDiv({ cls: "gtd-week" });
 
 		const nav = container.createDiv({ cls: "gtd-week-nav" });
 		const prevBtn = nav.createEl("button", {
@@ -461,11 +459,10 @@ export class GtdBoardView extends ItemView {
 	private renderLane(lane: LaneConfig): HTMLElement {
 		const collapsed = this.plugin.settings.collapsedLanes.includes(lane.id);
 
-		const laneEl = document.createElement("div");
-		laneEl.addClass("gtd-lane");
+		const laneEl = createDiv({ cls: "gtd-lane" });
 		if (collapsed) laneEl.addClass("gtd-lane-collapsed");
 		if (lane.isPlanned) laneEl.addClass("gtd-lane-planned");
-		laneEl.style.setProperty("--lane-color", lane.color);
+		laneEl.setCssProps({ "--lane-color": lane.color });
 
 		// Drop-Ziel ist der gesamte Lane-Container, damit auch eine eingeklappte
 		// Lane (z.B. "Erledigt") weiterhin Karten per Drag & Drop annehmen kann.
@@ -553,9 +550,7 @@ export class GtdBoardView extends ItemView {
 		task: GtdTask,
 		options: { showHomeLaneBadge?: boolean; enableReorder?: boolean } = {}
 	): HTMLElement {
-		const card = document.createElement("div");
-		card.addClass("gtd-card");
-		card.addClass(`gtd-card-priority-${task.priority ?? "medium"}`);
+		const card = createDiv({ cls: ["gtd-card", `gtd-card-priority-${task.priority ?? "medium"}`] });
 		if (task.source === "inline") card.addClass("gtd-card-inline");
 		card.setAttribute("draggable", "true");
 
@@ -668,7 +663,7 @@ export class GtdBoardView extends ItemView {
 			const bar = subtasksEl.createDiv({ cls: "gtd-card-subtasks-bar" });
 			const fill = bar.createDiv({ cls: "gtd-card-subtasks-bar-fill" });
 			const percent = subtasks.total > 0 ? Math.round((subtasks.done / subtasks.total) * 100) : 0;
-			fill.style.width = `${percent}%`;
+			fill.setCssStyles({ width: `${percent}%` });
 		}
 
 		// Tatsaechliche Lane unabhaengig davon, ob sie als Badge gezeigt wird - wird fuer die
@@ -701,7 +696,7 @@ export class GtdBoardView extends ItemView {
 			const tagsEl = card.createDiv({ cls: "gtd-card-tags" });
 			if (homeLane) {
 				const laneTag = tagsEl.createSpan({ cls: "gtd-card-tag gtd-card-tag-lane", text: homeLane.name });
-				laneTag.style.setProperty("--home-lane-color", homeLane.color);
+				laneTag.setCssProps({ "--home-lane-color": homeLane.color });
 			}
 			if (task.project) {
 				tagsEl.createSpan({ cls: "gtd-card-tag gtd-card-tag-project", text: `+${task.project}` });
@@ -973,10 +968,10 @@ export class GtdBoardView extends ItemView {
 	private updateBulkBar(): void {
 		this.bulkBarEl.empty();
 		if (!this.selectionMode || this.selectedTaskIds.size === 0) {
-			this.bulkBarEl.style.display = "none";
+			this.bulkBarEl.hide();
 			return;
 		}
-		this.bulkBarEl.style.display = "flex";
+		this.bulkBarEl.show();
 		this.bulkBarEl.createSpan({
 			cls: "gtd-bulk-bar-count",
 			text: t("view.bulk.selectedCount", { count: this.selectedTaskIds.size }),
@@ -1026,7 +1021,7 @@ export class GtdBoardView extends ItemView {
 	private async bulkDelete(): Promise<void> {
 		const ids = Array.from(this.selectedTaskIds);
 		if (ids.length === 0) return;
-		const confirmed = window.confirm(t("view.bulk.confirmDelete", { count: ids.length }));
+		const confirmed = await confirmDialog(this.app, t("view.bulk.confirmDelete", { count: ids.length }));
 		if (!confirmed) return;
 		for (const id of ids) {
 			const task = this.tasks.find((t) => t.id === id);

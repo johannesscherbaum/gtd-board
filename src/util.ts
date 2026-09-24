@@ -4,8 +4,34 @@ import { t } from "./i18n";
 
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 
+/**
+ * Frontmatter-Felder einer Aufgaben-Datei. Die Werte kommen aus per YAML geparsten,
+ * potenziell von Hand editierten Dateien - deshalb bewusst locker typisiert (string statt
+ * TaskPriority/RecurrenceRule) statt Any: toTaskPriority()/toRecurrenceRule() validieren den
+ * tatsaechlichen Inhalt zur Laufzeit ohnehin, hier geht es nur darum, "any" aus dem Umlauf zu
+ * nehmen. Der Index-Signature erlaubt zusaetzliche, unbekannte Frontmatter-Schluessel, die
+ * beim Speichern unveraendert erhalten bleiben.
+ */
+export interface TaskFrontmatter {
+	lane?: string;
+	done?: boolean | string;
+	doneAt?: string;
+	title?: string;
+	due?: string;
+	reminder?: string;
+	priority?: string;
+	recurrence?: string;
+	tags?: string[];
+	contexts?: string[];
+	delegatedTo?: string;
+	project?: string;
+	order?: number;
+	created?: string;
+	[key: string]: unknown;
+}
+
 export interface ParsedTaskFile {
-	frontmatter: Record<string, any>;
+	frontmatter: TaskFrontmatter;
 	body: string;
 }
 
@@ -15,14 +41,14 @@ export function parseTaskFile(content: string): ParsedTaskFile {
 	if (!match) {
 		return { frontmatter: {}, body: content };
 	}
-	const raw = parseYaml(match[1]);
-	const frontmatter = raw && typeof raw === "object" ? raw : {};
+	const raw: unknown = parseYaml(match[1]);
+	const frontmatter = raw && typeof raw === "object" ? (raw as TaskFrontmatter) : {};
 	return { frontmatter, body: match[2].replace(/^\r?\n/, "") };
 }
 
 /** Baut den vollstaendigen Dateiinhalt (Frontmatter + Body) einer Aufgaben-Datei. */
-export function buildTaskFileContent(frontmatter: Record<string, any>, body: string): string {
-	const cleaned: Record<string, any> = {};
+export function buildTaskFileContent(frontmatter: TaskFrontmatter, body: string): string {
+	const cleaned: TaskFrontmatter = {};
 	for (const [key, value] of Object.entries(frontmatter)) {
 		if (value === undefined || value === null || value === "") continue;
 		if (Array.isArray(value) && value.length === 0) continue;

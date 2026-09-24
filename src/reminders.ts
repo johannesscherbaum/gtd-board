@@ -1,4 +1,6 @@
 import { Notice } from "obsidian";
+// createFragment/createDiv/createEl usw. sind globale Ambient-Funktionen aus obsidian.d.ts
+// (declare global), nicht Modul-Exporte - deshalb hier ohne Import direkt aufrufbar.
 import { GtdBoardSettings, GtdTask } from "./types";
 import { computeEffectiveReminder } from "./util";
 import { t } from "./i18n";
@@ -42,7 +44,7 @@ export class ReminderScheduler {
 		const seconds = Math.max(15, this.host.getSettings().reminderCheckIntervalSeconds || 60);
 		this.intervalId = window.setInterval(() => {
 			void this.checkNow();
-		}, seconds * 1000) as unknown as number;
+		}, seconds * 1000);
 		void this.checkNow();
 	}
 
@@ -119,36 +121,24 @@ export class ReminderScheduler {
 			// Test-/Node-Umgebung ohne DOM: einfache Text-Notice.
 			new Notice(`${titleText}\n${body}`, 10000);
 		} else {
-			const frag = document.createDocumentFragment();
-			const title = document.createElement("div");
-			title.style.fontWeight = "600";
-			title.textContent = titleText;
-			frag.appendChild(title);
-
-			const bodyEl = document.createElement("div");
-			bodyEl.textContent = body;
-			bodyEl.style.marginBottom = "6px";
-			frag.appendChild(bodyEl);
-
-			const buttonRow = document.createElement("div");
-			buttonRow.style.display = "flex";
-			buttonRow.style.gap = "6px";
-			buttonRow.style.marginTop = "4px";
-
 			let noticeRef: Notice | undefined;
-			for (const option of SNOOZE_OPTIONS) {
-				const btn = document.createElement("button");
-				btn.textContent = t(option.labelKey);
-				btn.style.fontSize = "12px";
-				btn.onclick = (evt) => {
-					evt.preventDefault();
-					evt.stopPropagation();
-					void this.snoozeTask(task.id, option.computeUntil(new Date()));
-					noticeRef?.hide();
-				};
-				buttonRow.appendChild(btn);
-			}
-			frag.appendChild(buttonRow);
+			const frag = createFragment((el) => {
+				el.createDiv({ text: titleText }).setCssStyles({ fontWeight: "600" });
+				el.createDiv({ text: body }).setCssStyles({ marginBottom: "6px" });
+
+				const buttonRow = el.createDiv();
+				buttonRow.setCssStyles({ display: "flex", gap: "6px", marginTop: "4px" });
+				for (const option of SNOOZE_OPTIONS) {
+					const btn = buttonRow.createEl("button", { text: t(option.labelKey) });
+					btn.setCssStyles({ fontSize: "12px" });
+					btn.onclick = (evt) => {
+						evt.preventDefault();
+						evt.stopPropagation();
+						void this.snoozeTask(task.id, option.computeUntil(new Date()));
+						noticeRef?.hide();
+					};
+				}
+			});
 
 			noticeRef = new Notice(frag, 15000);
 		}
