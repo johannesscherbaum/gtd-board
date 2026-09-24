@@ -1,7 +1,7 @@
 {
   "id": "gtd-board",
   "name": "GTD Board",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "minAppVersion": "1.13.0",
   "description": "A customizable GTD Kanban board: scans a folder (including subfolders) for task files and inline checkboxes, displays them as color-coded swimlanes, and manages due dates with desktop reminders.",
   "author": "Johannes",
