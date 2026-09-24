@@ -1,7 +1,7 @@
 {
   "id": "gtd-board",
   "name": "GTD Board",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "minAppVersion": "1.13.0",
   "description": "Ein anpassbares GTD-Kanban-Board: durchsucht einen Ordner (inkl. Unterordner) nach Aufgaben-Dateien und Inline-Checkboxen, zeigt sie als farbige Swimlanes an und verwaltet Termine mit Desktop-Erinnerungen.",
   "author": "Johannes",
