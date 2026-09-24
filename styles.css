@@ -667,25 +667,57 @@
 	max-height: 60vh;
 }
 
-/* Toolbar: Suche/Kontext/Projekt/Ansicht/Sortierung bleiben direkt sichtbar und brechen
-   bei Bedarf in eine weitere Zeile um, statt horizontal zu scrollen. */
+/* Toolbar: nur Suchfeld + Burger-Icon bleiben in der obersten Zeile sichtbar, damit die
+   Lanes moeglichst weit oben beginnen. Alle uebrigen Bedienelemente stecken im
+   Dropdown-Menu (.gtd-board-mobile-menu), das per Burger-Icon auf- und zugeklappt wird. */
 .is-mobile .gtd-board-toolbar {
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
 	justify-content: flex-start;
 }
 
 .is-mobile .gtd-toolbar-search-group {
-	flex: 1 1 100%;
+	flex: 1 1 auto;
+	margin-right: 0;
+	min-width: 0;
+}
+
+.is-mobile .gtd-board-menu-btn {
+	flex: 0 0 auto;
+	margin-left: 8px;
+}
+
+/* Dropdown-Menu unterhalb der Toolbar: alle Filter/Ansicht/Sortierung sowie Mehrfachauswahl,
+   Wochenrueckblick und Aktualisieren stehen hier untereinander, jeweils ueber die volle
+   Breite - Sichtbarkeit wird per Inline-style (display: none/flex) vom Burger-Button gesteuert. */
+.is-mobile .gtd-board-mobile-menu {
+	flex-direction: column;
+	align-items: stretch;
+	gap: 8px;
+	width: 100%;
+	padding: 8px 0 4px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 4px;
+}
+
+.is-mobile .gtd-board-mobile-menu .gtd-toolbar-group {
+	width: 100%;
 	margin-right: 0;
 }
 
-.is-mobile .gtd-board-overflow-btn {
-	margin-left: auto;
+.is-mobile .gtd-board-mobile-menu .gtd-toolbar-inline-icon select {
+	flex: 1 1 auto;
+	width: 100%;
+}
+
+.is-mobile .gtd-board-mobile-menu button {
+	width: 100%;
+	justify-content: flex-start;
 }
 
 /* Touch-Ziele vergroessern (Obsidian Mobile erwartet ~44px Mindestgroesse). */
 .is-mobile .gtd-toolbar-group button,
-.is-mobile .gtd-board-overflow-btn,
+.is-mobile .gtd-board-menu-btn,
+.is-mobile .gtd-board-mobile-menu button,
 .is-mobile .gtd-lane-toggle,
 .is-mobile .gtd-lane-add,
 .is-mobile .gtd-card-done-checkbox,

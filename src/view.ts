@@ -174,7 +174,44 @@ export class GtdBoardView extends ItemView {
 			this.renderBoard();
 		});
 
-		const contextGroup = toolbar.createDiv({ cls: "gtd-toolbar-group gtd-toolbar-inline-icon" });
+		// Auf Mobile bleibt neben dem Suchfeld nur ein Burger-Icon in der Toolbar sichtbar;
+		// alle uebrigen Bedienelemente (Filter, Ansicht, Sortierung, Mehrfachauswahl,
+		// Wochenrueckblick, Aktualisieren) wandern in ein Dropdown-Menu darunter, damit die
+		// Lanes moeglichst weit oben beginnen. Auf dem Desktop bleiben sie unveraendert als
+		// eigene sichtbare Gruppen direkt in der Toolbar.
+		let menuBtn: HTMLButtonElement | undefined;
+		let mobileMenuEl: HTMLElement | undefined;
+		let controlsParent: HTMLElement = toolbar;
+		let closeMobileMenu: () => void = () => {};
+		if (Platform.isMobile) {
+			menuBtn = this.createIconButton(toolbar, "menu", "", "gtd-board-menu-btn");
+			menuBtn.setAttribute("aria-label", t("view.overflow.title"));
+			menuBtn.setAttribute("title", t("view.overflow.title"));
+			mobileMenuEl = container.createDiv({ cls: "gtd-board-mobile-menu" });
+			mobileMenuEl.style.display = "none";
+			controlsParent = mobileMenuEl;
+
+			const btn = menuBtn;
+			const panel = mobileMenuEl;
+			closeMobileMenu = () => {
+				panel.style.display = "none";
+				btn.toggleClass("is-active", false);
+			};
+			btn.addEventListener("click", (evt) => {
+				evt.stopPropagation();
+				const isOpen = panel.style.display !== "none";
+				panel.style.display = isOpen ? "none" : "flex";
+				btn.toggleClass("is-active", !isOpen);
+			});
+			// Klick ausserhalb schliesst das Dropdown wieder.
+			this.registerDomEvent(document, "click", (evt) => {
+				if (panel.style.display === "none") return;
+				if (panel.contains(evt.target as Node) || btn.contains(evt.target as Node)) return;
+				closeMobileMenu();
+			});
+		}
+
+		const contextGroup = controlsParent.createDiv({ cls: "gtd-toolbar-group gtd-toolbar-inline-icon" });
 		this.createToolbarIcon(contextGroup, "at-sign");
 		this.contextSelectEl = contextGroup.createEl("select", { cls: "gtd-board-context-filter" });
 		this.contextSelectEl.setAttribute("title", t("view.context.title"));
@@ -183,7 +220,7 @@ export class GtdBoardView extends ItemView {
 			this.renderBoard();
 		});
 
-		const projectGroup = toolbar.createDiv({ cls: "gtd-toolbar-group gtd-toolbar-inline-icon" });
+		const projectGroup = controlsParent.createDiv({ cls: "gtd-toolbar-group gtd-toolbar-inline-icon" });
 		this.createToolbarIcon(projectGroup, "folder");
 		this.projectSelectEl = projectGroup.createEl("select", { cls: "gtd-board-project-filter" });
 		this.projectSelectEl.setAttribute("title", t("view.project.title"));
@@ -192,7 +229,7 @@ export class GtdBoardView extends ItemView {
 			this.renderBoard();
 		});
 
-		const viewModeGroup = toolbar.createDiv({ cls: "gtd-toolbar-group gtd-toolbar-inline-icon" });
+		const viewModeGroup = controlsParent.createDiv({ cls: "gtd-toolbar-group gtd-toolbar-inline-icon" });
 		this.createToolbarIcon(viewModeGroup, "layout-grid");
 		const viewModeSelect = viewModeGroup.createEl("select", { cls: "gtd-board-viewmode" });
 		viewModeSelect.setAttribute("title", t("view.viewMode.title"));
@@ -208,7 +245,7 @@ export class GtdBoardView extends ItemView {
 			this.renderBoard();
 		});
 
-		const sortGroup = toolbar.createDiv({ cls: "gtd-toolbar-group gtd-toolbar-inline-icon" });
+		const sortGroup = controlsParent.createDiv({ cls: "gtd-toolbar-group gtd-toolbar-inline-icon" });
 		this.createToolbarIcon(sortGroup, "arrow-up-down");
 		this.sortSelectEl = sortGroup.createEl("select", { cls: "gtd-board-sort" });
 		this.sortSelectEl.setAttribute("title", t("view.sort.title"));
@@ -220,68 +257,34 @@ export class GtdBoardView extends ItemView {
 			void this.setSortMode(this.sortSelectEl.value as SortMode);
 		});
 
-		// Mehrfachauswahl, Wochenrueckblick und Aktualisieren bleiben auf dem Desktop als eigene
-		// sichtbare Buttons; auf Mobile wandern sie in ein einzelnes Overflow-Menu, damit die
-		// Toolbar dort nicht zu viele Icons auf einmal zeigt.
-		if (Platform.isMobile) {
-			const overflowBtn = this.createIconButton(toolbar, "more-vertical", "", "gtd-board-overflow-btn");
-			overflowBtn.setAttribute("aria-label", t("view.overflow.title"));
-			overflowBtn.setAttribute("title", t("view.overflow.title"));
-			// Da ein Menuepunkt (anders als ein Toolbar-Button) nicht dauerhaft sichtbar
-			// hervorgehoben bleibt, spiegelt der Overflow-Button selbst den Auswahl-Modus-
-			// Zustand wider - Parity zur Desktop-Ansicht, in der der Button aktiv leuchtet.
-			overflowBtn.toggleClass("is-active", this.selectionMode);
-			overflowBtn.addEventListener("click", (evt) => {
-				const menu = new Menu();
-				menu.addItem((item) =>
-					item
-						.setTitle(t("view.selection.button"))
-						.setIcon("list-checks")
-						.setChecked(this.selectionMode)
-						.onClick(() => {
-							this.selectionMode = !this.selectionMode;
-							overflowBtn.toggleClass("is-active", this.selectionMode);
-							if (!this.selectionMode) this.selectedTaskIds.clear();
-							this.renderBoard();
-						})
-				);
-				menu.addItem((item) =>
-					item
-						.setTitle(t("view.review.button"))
-						.setIcon("clipboard-check")
-						.onClick(() => void this.plugin.openWeeklyReview())
-				);
-				menu.addItem((item) =>
-					item
-						.setTitle(t("view.refresh.button"))
-						.setIcon("refresh-cw")
-						.onClick(() => void this.refresh())
-				);
-				menu.showAtMouseEvent(evt);
-			});
-		} else {
-			const selectionToggleBtn = this.createIconButton(
-				toolbar,
-				"list-checks",
-				t("view.selection.button"),
-				"gtd-board-selection-toggle"
-			);
-			selectionToggleBtn.setAttribute("title", t("view.selection.title"));
-			selectionToggleBtn.addEventListener("click", () => {
-				this.selectionMode = !this.selectionMode;
-				selectionToggleBtn.toggleClass("is-active", this.selectionMode);
-				if (!this.selectionMode) this.selectedTaskIds.clear();
-				this.renderBoard();
-			});
+		const selectionToggleBtn = this.createIconButton(
+			controlsParent,
+			"list-checks",
+			t("view.selection.button"),
+			"gtd-board-selection-toggle"
+		);
+		selectionToggleBtn.setAttribute("title", t("view.selection.title"));
+		selectionToggleBtn.addEventListener("click", () => {
+			this.selectionMode = !this.selectionMode;
+			selectionToggleBtn.toggleClass("is-active", this.selectionMode);
+			if (!this.selectionMode) this.selectedTaskIds.clear();
+			this.renderBoard();
+			closeMobileMenu();
+		});
 
-			const reviewBtn = this.createIconButton(toolbar, "clipboard-check", t("view.review.button"));
-			reviewBtn.setAttribute("title", t("view.review.title"));
-			reviewBtn.addEventListener("click", () => void this.plugin.openWeeklyReview());
+		const reviewBtn = this.createIconButton(controlsParent, "clipboard-check", t("view.review.button"));
+		reviewBtn.setAttribute("title", t("view.review.title"));
+		reviewBtn.addEventListener("click", () => {
+			void this.plugin.openWeeklyReview();
+			closeMobileMenu();
+		});
 
-			const refreshBtn = this.createIconButton(toolbar, "refresh-cw", t("view.refresh.button"));
-			refreshBtn.setAttribute("title", t("view.refresh.title"));
-			refreshBtn.addEventListener("click", () => void this.refresh());
-		}
+		const refreshBtn = this.createIconButton(controlsParent, "refresh-cw", t("view.refresh.button"));
+		refreshBtn.setAttribute("title", t("view.refresh.title"));
+		refreshBtn.addEventListener("click", () => {
+			void this.refresh();
+			closeMobileMenu();
+		});
 
 		this.bulkBarEl = container.createDiv({ cls: "gtd-bulk-bar" });
 		this.bulkBarEl.style.display = "none";
