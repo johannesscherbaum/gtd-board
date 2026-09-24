@@ -1,207 +1,200 @@
-# GTD Board (Obsidian-Plugin)
+# GTD Board (Obsidian Plugin)
 
-Ein anpassbares Kanban-Board fuer Obsidian auf GTD-Basis.
+A customizable GTD-based Kanban board for Obsidian.
 
-## Funktionsweise
+## How it works
 
-- Durchsucht einen konfigurierbaren Ordner **inklusive Unterordner** nach Aufgaben.
-- Zwei Aufgabenquellen:
-  - **Datei-Aufgaben** (primär): jede Aufgabe ist eine eigene Markdown-Datei im
-    Unterordner "Aufgaben-Unterordner". Frontmatter enthaelt Lane, Faelligkeit,
-    Erinnerung und Tags; der Dateikoerper ist die Markdown-Beschreibung.
-  - **Inline-Checkboxen**: `- [ ] Text #gtd/next 📅 2026-09-20` in normalen
-    Notizen des ueberwachten Ordners. Die Lane wird ueber ein Tag erkannt
-    (z. B. `#gtd/next`), das Faelligkeitsdatum ueber `📅 YYYY-MM-DD` (optional
-    mit `⏰HH:mm`).
-- **Swimlanes** sind farbig markiert und frei benennbar/verschiebbar. Vorgabe
-  ist die GTD-Systematik (Eingang, Naechste Aktionen, Wartet auf,
-  Irgendwann/Vielleicht, Erledigt), aber komplett anpassbar (Einstellungen).
-  Jede Lane laesst sich per Pfeil-Icon zu einer schmalen, vertikalen Box
-  einklappen; der Zustand wird gespeichert.
-- **"Erledigt" ist rein hakenbasiert**: Eine Aufgabe erscheint automatisch in
-  der als "isDone" markierten Lane, sobald ihr Haken gesetzt ist
-  (Inline-Checkbox `- [x]` bzw. `done: true` im Frontmatter) - unabhaengig
-  vom sonstigen Lane-Tag. Die Erledigt-Lane traegt bewusst kein eigenes Tag.
-- **Drag & Drop** verschiebt Aufgaben zwischen Lanes und schreibt die
-  Aenderung sofort in die zugrunde liegende Datei zurueck: bei Datei-Aufgaben
-  ins Frontmatter (`lane:` / `done:`), bei Inline-Aufgaben durch Setzen des
-  Hakens bzw. Austausch des Lane-Tags direkt in der Zeile. Beim Verschieben
-  in "Erledigt" bleibt das urspruengliche Lane-Tag erhalten, damit die
-  Aufgabe beim Zurueckziehen wieder in ihrer Herkunfts-Lane landet.
-- **Neue Aufgaben** koennen ueber den "+"-Button jeder Lane angelegt werden
-  (immer als Datei-Aufgabe).
-- **Bearbeiten** einer Aufgabe (Titel, Markdown-Beschreibung, Faelligkeit,
-  Erinnerung, Tags) oeffnet einen Dialog mit einem "Vorschau"/"Bearbeiten"-
-  Umschalter fuer die Beschreibung (Markdown-Quelltext und gerenderte Vorschau
-  nacheinander statt nebeneinander). Wird eine Inline-Aufgabe inhaltlich
-  bearbeitet, legt das Plugin automatisch eine Aufgaben-Datei an und entfernt
-  die urspruengliche Checkbox-Zeile.
-- **Erinnerungen**: Faelligkeitsdatum plus optional eigener Erinnerungs-
-  zeitpunkt (sonst Standard-Offset vor Faelligkeit). Das Plugin prueft
-  periodisch faellige Erinnerungen und zeigt eine Desktop-Benachrichtigung
-  (Browser-Notification) sowie eine Obsidian-Notice mit Snooze-Buttons
-  ("1 Std.", "Morgen 9:00") - ein Klick verschiebt die Erinnerung auf den
-  gewaehlten Zeitpunkt und loest sie danach automatisch erneut aus.
-- **Suche/Filter**: Die Toolbar oberhalb des Boards enthaelt ein Suchfeld,
-  das Karten nach Titel oder Tag filtert. Die Lane-Zaehler zeigen weiterhin
-  die ungefilterte Gesamtanzahl.
-- **WIP-Limit je Lane**: In den Einstellungen laesst sich pro Lane ein
-  optionales Limit fuer gleichzeitige Aufgaben setzen. Bei Ueberschreitung
-  wird der Zaehler in der Lane-Kopfzeile rot/fett hervorgehoben.
-- **Faelligkeits-Farbcodierung**: Karten mit Faelligkeitsdatum werden je
-  nach Dringlichkeit eingefaerbt - heute/ueberfaellig rot, diese Woche gelb,
-  spaeter neutral. Erledigte Aufgaben werden nicht mehr farblich markiert.
-- **Sortierbare Lanes**: Ueber ein Dropdown in der Toolbar lassen sich die
-  Karten innerhalb aller Lanes nach eigener Reihenfolge, Prioritaet,
-  Faelligkeit oder Titel sortieren (Standard: Prioritaet); die Auswahl wird
-  gespeichert.
-- **"Geplant"-Uebersichts-Lane**: eine optionale, virtuelle Lane (in den
-  Einstellungen aktivierbar), die automatisch alle nicht erledigten Aufgaben
-  mit Faelligkeit zeigt - unabhaengig von ihrer eigentlichen Lane, immer
-  aufsteigend nach Faelligkeit sortiert. Jede Karte traegt zusaetzlich ein
-  Badge mit ihrer Herkunfts-Lane. Kein eigenes Tag, kein Drop-Ziel.
-- **Prioritaet**: Aufgaben koennen als Hoch/Mittel/Niedrig eingestuft werden
-  (Inline ueber 🔺/🔽, sonst ohne Marker; Datei-Aufgaben ueber Frontmatter
-  `priority:`). Karten zeigen einen farbigen linken Rahmen plus Icon; die
-  Standard-Sortierung richtet sich nach der Prioritaet.
-- **Quick-Capture**: Befehl "Schnellerfassung: neue Aufgabe anlegen" (per
-  Hotkey belegbar) legt von ueberall im Vault sofort eine neue Aufgabe in der
-  Standard-Lane an, ohne das Board zu oeffnen - klassisches GTD-Capture.
-- **Subtasks/Checklisten**: Markdown-Checkboxen (`- [ ]`/`- [x]`) in der
-  Beschreibung einer Datei-Aufgabe werden auf der Karte als Fortschritt
-  ("3/5") inkl. Balken angezeigt.
-- **Kontext-Tags**: `@Buero`, `@Telefon` usw. als zweite, von der Lane
-  unabhaengige Filterdimension - naeher an "echtem" GTD als reine
-  Status-Lanes. Werden wie Tags im Beschreibungs-Dialog gepflegt bzw. inline
-  per `@wort` erkannt; ein eigenes Dropdown in der Toolbar filtert danach.
-- **Automatische Archivierung**: erledigte Datei-Aufgaben koennen nach einer
-  konfigurierbaren Anzahl Tage automatisch in einen Archiv-Ordner verschoben
-  werden (Standard: deaktiviert), damit "Erledigt" nicht endlos waechst.
-  Aufgaben ohne bekannten Erledigungs-Zeitpunkt werden nie automatisch
-  verschoben.
-- **ICS-Export**: alle offenen Faelligkeiten koennen als `.ics`-Datei ins
-  Vault geschrieben werden (automatisch bei jeder Aktualisierung oder manuell
-  per Befehl/Button in den Einstellungen). Ein echter Kalender kann diese
-  Datei abonnieren/importieren und uebernimmt so die zuverlaessige
-  Benachrichtigung, auch wenn Obsidian nicht laeuft.
-- **Wiederkehrende Aufgaben**: eine Aufgabe kann als taeglich/woechentlich/
-  monatlich/jaehrlich wiederkehrend markiert werden (Dialog-Dropdown
-  "Wiederholung"; inline ueber `🔁 woechentlich` usw.). Wird sie nach
-  "Erledigt" verschoben oder direkt in der Notiz abgehakt, springt sie
-  automatisch auf den naechsten Termin und bleibt offen, statt abgeschlossen
-  zu werden - klassisches "jeden Montag"-Verhalten, ohne Faelligkeit
-  wirkungslos.
-- **Agenda-Ansicht**: Umschalter "Kanban"/"Agenda" in der Toolbar. Die
-  Agenda-Ansicht zeigt alle offenen Aufgaben lane-uebergreifend als flache,
-  immer nach Faelligkeit aufsteigend sortierte Liste (Aufgaben ohne
-  Faelligkeit stehen am Ende); jede Karte traegt ein Badge mit ihrer
-  eigentlichen Lane.
-- **Bulk-Aktionen**: Der Button "Mehrfachauswahl" blendet auf jeder Karte
-  eine Checkbox ein; ausgewaehlte Aufgaben lassen sich gemeinsam in eine
-  Ziel-Lane verschieben oder (mit Sicherheitsabfrage) gemeinsam loeschen.
-- **Erledigt-Haken auf der Karte**: jede Karte traegt links im Titel eine
-  Checkbox, die die Aufgabe direkt (ohne Bearbeiten-Dialog) als erledigt
-  markiert bzw. wieder zurueckholt - verschiebt sie automatisch in bzw. aus
-  der "Erledigt"-Lane, inkl. Wiederholungs-Logik.
-- **Wochenansicht**: dritte Ansicht (neben Kanban/Agenda) mit echtem
-  Kalender-Raster - Montag bis Sonntag als Spalten, offene Aufgaben mit
-  Faelligkeit stehen unter ihrem Kalendertag. Navigation zur vorherigen/
-  naechsten Woche sowie ein "Heute"-Button. Fuer alles daruber hinaus
-  (Termine verschieben, mehrere Kalender kombinieren) bleibt der
-  ICS-Export der bessere Weg.
-- **Delegation**: eine Aufgabe kann als "an XY delegiert" markiert werden
-  (Dialog-Feld "Delegiert an"; inline ueber `👤 Name`, ein Wort ohne
-  Leerzeichen). Wird wie Kontext/Tags dezent auf der Karte angezeigt und
-  bleibt beim Verschieben zwischen Lanes erhalten.
-- **Projekt**: eine freie, zweite Ordnungsdimension neben Lane und Kontext -
-  eine Aufgabe gehoert zu genau einem Projekt (Dialog-Feld "Projekt"; inline
-  ueber `+ProjektName`, todo.txt-Syntax). Ein eigenes Dropdown in der Toolbar
-  filtert danach; auf der Karte erscheint das Projekt dezent in der
-  Tag-Zeile. Bildet GTD's Projektliste ab, ohne die Lanes/Status-Sicht zu
-  verwassern.
-- **Auffrischungs-Markierung ("Wartet auf" & "Irgendwann/Vielleicht")**: eine
-  Karte, die laenger als konfiguriert (Einstellungen &rarr; "Auffrischung",
-  Standard 5 bzw. 60 Tage) ohne inhaltliche Aenderung oder Review in "Wartet
-  auf" bzw. einer als "Irgendwann/Vielleicht" markierten Lane liegt, erhaelt
-  einen gelben Rahmen plus Hinweis-Tag. Rein visuell - verhindert, dass
-  Delegationen im Sand verlaufen oder die Someday/Maybe-Liste zum Friedhof
-  wird, ohne automatisch etwas zu veraendern. Welche Lanes als "Someday"
-  zaehlen, ist in den Einstellungen je Lane umschaltbar.
-- **Wochenrueckblick**: Toolbar-Button (Symbol Klemmbrett-Haken) bzw. Befehl
-  "Wochenrueckblick starten" fuehrt gefuehrt durch alle offenen Aufgaben,
-  Lane fuer Lane, innerhalb einer Lane am laengsten nicht angefasste zuerst -
-  klassisches GTD Weekly Review. Pro Aufgabe drei Aktionen: "Passt so"
-  (bestaetigt die Aufgabe unveraendert und setzt den Auffrischungs-Zeitpunkt
-  zurueck), "Bearbeiten" (oeffnet den normalen Dialog) oder "Erledigt"
-  (direkt in die Erledigt-Lane).
-- **Natural-Language-Schnellerfassung**: die Schnellerfassung versteht beim
-  Tippen dieselbe kompakte Syntax wie Inline-Checkboxen - `📅 Datum`,
-  `@Kontext`, `+Projekt`, `👤 Delegation`, `🔺`/`🔽` Prioritaet, `🔁
-  Wiederholung` sowie `#lane/tag` zur direkten Lane-Zuordnung - und zeigt
-  eine Live-Vorschau, was erkannt wurde. So laesst sich z. B.
-  "Angebot pruefen @Buero +SAP-Transformation 📅 morgen 🔺" in einem Zug
-  vollstaendig erfassen, ohne die Aufgabe danach im Board nachzupflegen.
-- **Mehrsprachigkeit**: die Oberflaeche (Buttons, Menues, Einstellungen,
-  Benachrichtigungen) ist auf Deutsch und Englisch verfuegbar und folgt
-  automatisch Obsidians eigener Spracheinstellung - keine zusaetzliche
-  Konfiguration noetig. Die Inline-Syntax in den Notizen selbst (Tags,
-  `heute`/`morgen`/`übermorgen`, Wiederholungswoerter) bleibt unabhaengig
-  von der Oberflaechensprache unveraendert, damit bestehende Notizen nicht
-  brechen. Weitere Sprachen lassen sich ueber `src/i18n/` ergaenzen.
+- Scans a configurable folder **including subfolders** for tasks.
+- Two task sources:
+  - **File tasks** (primary): each task is its own Markdown file inside the
+    "task subfolder". Frontmatter holds lane, due date, reminder, and tags;
+    the file body is the Markdown description.
+  - **Inline checkboxes**: `- [ ] Text #gtd/next 📅 2026-09-20` in regular
+    notes inside the watched folder. The lane is recognized via a tag
+    (e.g. `#gtd/next`), the due date via `📅 YYYY-MM-DD` (optionally with
+    `⏰HH:mm`).
+- **Swimlanes** are color-coded and freely renamable/reorderable. The default
+  follows the GTD system (Inbox, Next Actions, Waiting For,
+  Someday/Maybe, Done), but is fully customizable (settings). Each lane can
+  be collapsed into a narrow vertical strip via an arrow icon; the collapsed
+  state is saved.
+- **"Done" is purely checkbox-driven**: a task automatically appears in the
+  lane marked "isDone" as soon as its checkbox is checked (inline checkbox
+  `- [x]` or `done: true` in frontmatter) - independent of its regular lane
+  tag. The Done lane deliberately carries no tag of its own.
+- **Drag & drop** moves tasks between lanes and writes the change straight
+  back into the underlying file: for file tasks into the frontmatter
+  (`lane:` / `done:`), for inline tasks by toggling the checkbox or swapping
+  the lane tag directly in the line. When moved to "Done", the original lane
+  tag is kept so the task returns to its home lane when un-checked.
+- **New tasks** can be created via the "+" button on each lane (always as a
+  file task).
+- **Editing** a task (title, Markdown description, due date, reminder, tags)
+  opens a dialog with a "Preview"/"Edit" toggle for the description
+  (Markdown source and rendered preview shown one after another rather than
+  side by side). Editing the content of an inline task automatically creates
+  a task file and removes the original checkbox line.
+- **Reminders**: due date plus an optional custom reminder time (otherwise a
+  default offset before the due date). The plugin periodically checks for
+  due reminders and shows a desktop notification (browser notification) as
+  well as an Obsidian notice with snooze buttons ("1 hr", "Tomorrow 9:00") -
+  clicking one pushes the reminder to the chosen time and it fires again
+  automatically afterward.
+- **Search/filter**: the toolbar above the board has a search field that
+  filters cards by title or tag. Lane counters still show the unfiltered
+  total.
+- **Per-lane WIP limit**: settings let you set an optional limit on
+  simultaneous tasks per lane. When exceeded, the counter in the lane header
+  is highlighted in bold red.
+- **Due-date color coding**: cards with a due date are colored by urgency -
+  today/overdue red, this week yellow, later neutral. Completed tasks are no
+  longer color-highlighted.
+- **Sortable lanes**: a dropdown in the toolbar lets you sort cards within
+  all lanes by custom order, priority, due date, or title (default:
+  priority); the choice is remembered.
+- **"Planned" overview lane**: an optional, virtual lane (enabled in
+  settings) that automatically shows all open tasks with a due date -
+  regardless of their actual lane, always sorted ascending by due date. Each
+  card additionally carries a badge showing its home lane. No tag of its
+  own, not a drop target.
+- **Priority**: tasks can be rated High/Medium/Low (inline via 🔺/🔽,
+  otherwise no marker; file tasks via frontmatter `priority:`). Cards show a
+  colored left border plus icon; the default sort order follows priority.
+- **Quick capture**: the "Quick capture: create new task" command (can be
+  bound to a hotkey) instantly creates a new task in the default lane from
+  anywhere in the vault, without opening the board - classic GTD capture.
+- **Subtasks/checklists**: Markdown checkboxes (`- [ ]`/`- [x]`) in a file
+  task's description are shown on the card as progress ("3/5") including a
+  bar.
+- **Context tags**: `@Office`, `@Phone`, etc. as a second filter dimension
+  independent of the lane - closer to "real" GTD than plain status lanes.
+  Maintained like tags in the description dialog or recognized inline via
+  `@word`; a dedicated dropdown in the toolbar filters by them.
+- **Automatic archiving**: completed file tasks can be automatically moved
+  to an archive folder after a configurable number of days (default:
+  disabled), so "Done" doesn't grow forever. Tasks with no known completion
+  time are never moved automatically.
+- **ICS export**: all open due dates can be written into the vault as an
+  `.ics` file (automatically on every refresh, or manually via a
+  command/button in settings). A real calendar app can subscribe to/import
+  this file and take over reliable notifications, even when Obsidian isn't
+  running.
+- **Recurring tasks**: a task can be marked as daily/weekly/monthly/yearly
+  recurring (dialog dropdown "Recurrence"; inline via `🔁 weekly` etc.). When
+  moved to "Done" or checked off directly in the note, it automatically
+  jumps to its next due date and stays open instead of being completed -
+  classic "every Monday" behavior, has no effect without a due date.
+- **Agenda view**: "Kanban"/"Agenda" toggle in the toolbar. The agenda view
+  shows all open tasks across lanes as a flat list, always sorted ascending
+  by due date (tasks without a due date at the end); each card carries a
+  badge with its actual lane.
+- **Bulk actions**: the "Multi-select" button shows a checkbox on every
+  card; selected tasks can be moved together to a target lane or (with a
+  confirmation prompt) deleted together.
+- **Done checkbox on the card**: every card has a checkbox on the left of
+  its title that marks the task done (or undoes that) directly, without
+  opening the edit dialog - moves it into/out of the "Done" lane
+  automatically, including recurrence logic.
+- **Week view**: a third view (alongside Kanban/Agenda) with a real calendar
+  grid - Monday through Sunday as columns, open tasks with a due date sit
+  under their calendar day. Navigation to the previous/next week plus a
+  "Today" button. For anything beyond that (rescheduling, combining several
+  calendars), the ICS export remains the better route.
+- **Delegation**: a task can be marked as "delegated to XY" (dialog field
+  "Delegated to"; inline via `👤 Name`, a single word with no spaces). Shown
+  discreetly on the card like context/tags, and preserved when moved between
+  lanes.
+- **Project**: a free, second organizing dimension alongside lane and
+  context - a task belongs to exactly one project (dialog field "Project";
+  inline via `+ProjectName`, todo.txt syntax). A dedicated dropdown in the
+  toolbar filters by it; the project appears discreetly on the card's tag
+  row. Reflects GTD's project list without cluttering the lane/status view.
+- **Staleness marker ("Waiting For" & "Someday/Maybe")**: a card that has
+  sat longer than configured (Settings → "Refresh", default 5 or 60 days)
+  without content changes or review in "Waiting For" or a lane marked
+  "Someday/Maybe" gets a yellow border plus a hint tag. Purely visual -
+  prevents delegations from stalling silently or the someday/maybe list from
+  becoming a graveyard, without changing anything automatically. Which lanes
+  count as "Someday" is toggled per lane in settings.
+- **Weekly review**: toolbar button (clipboard-check icon) or the "Start
+  weekly review" command walks you through all open tasks, lane by lane,
+  within a lane the longest-untouched first - a classic GTD Weekly Review.
+  Three actions per task: "Looks good" (confirms the task unchanged and
+  resets its staleness timer), "Edit" (opens the normal dialog), or "Done"
+  (moves straight to the Done lane).
+- **Natural-language quick capture**: quick capture understands the same
+  compact syntax as inline checkboxes while typing - `📅 date`, `@context`,
+  `+project`, `👤 delegate`, `🔺`/`🔽` priority, `🔁 recurrence`, and
+  `#lane/tag` for direct lane assignment - and shows a live preview of what
+  was recognized. So e.g. "Review quote @Office +SAP-Transformation 📅
+  tomorrow 🔺" can be captured completely in one go, without touching up the
+  task afterward on the board.
+- **Multi-language**: the interface (buttons, menus, settings,
+  notifications) is available in German and English and automatically
+  follows Obsidian's own language setting - no extra configuration needed.
+  The inline syntax in your notes themselves (tags, `today`/`tomorrow`/`day
+  after tomorrow`, recurrence words) stays independent of the interface
+  language so existing notes don't break. Further languages can be added via
+  `src/i18n/`.
 
-## Installation (manuell, zum Testen)
+## Installation (manual, for testing)
 
-1. Ordner `gtd-board` in `<Vault>/.obsidian/plugins/` kopieren (oder
-   `main.js`, `manifest.json`, `styles.css` dort in einen neuen Unterordner
-   legen).
-2. In Obsidian: Einstellungen → Community-Plugins → "GTD Board" aktivieren.
-3. Einstellungen des Plugins pruefen: Ordner, Aufgaben-Unterordner, Lanes.
-4. Board oeffnen ueber das Ribbon-Icon oder den Befehl "GTD Board oeffnen".
+1. Copy the `gtd-board` folder into `<Vault>/.obsidian/plugins/` (or place
+   `main.js`, `manifest.json`, `styles.css` there in a new subfolder).
+2. In Obsidian: Settings → Community plugins → enable "GTD Board".
+3. Check the plugin's settings: folder, task subfolder, lanes.
+4. Open the board via the ribbon icon or the "Open GTD Board" command.
 
-## Entwicklung
+## Development
 
 ```bash
 npm install
 npm run dev      # esbuild watch
-npm run build    # Typecheck + Produktionsbuild (main.js)
-npm test         # Unit-Tests (Parser, Datumslogik, Erinnerungen)
+npm run build    # typecheck + production build (main.js)
+npm test         # unit tests (parser, date logic, reminders)
 ```
 
-## Veroeffentlichung im Community-Plugin-Verzeichnis
+## Publishing to the Community Plugins directory
 
-1. Quellcode in ein **oeffentliches GitHub-Repository** pushen (Repo-Name
-   sollte zur Plugin-ID `gtd-board` passen). `LICENSE` (MIT) ist bereits
-   vorhanden.
-2. Pruefen, dass die Plugin-ID in `manifest.json` nicht mit einem bereits
-   gelisteten Community-Plugin kollidiert.
-3. Einen Git-Tag exakt nach der Versionsnummer aus `manifest.json` pushen,
-   z. B. `git tag 0.1.0 && git push origin 0.1.0`. Der mitgelieferte
-   GitHub-Actions-Workflow (`.github/workflows/release.yml`) baut das Plugin
-   dann automatisch und haengt `main.js`, `manifest.json` und `styles.css`
-   als Release-Assets an.
-4. `versions.json` bei jedem Release um die neue Version erweitern (Mapping
-   Plugin-Version → minimale Obsidian-Version).
-5. Im Repo `obsidianmd/obsidian-releases` die Datei `community-plugins.json`
-   forken, einen Eintrag (`id`, `name`, `author`, `description`, `repo`)
-   ergaenzen und als Pull Request einreichen. Ein Bot prueft Manifest und
-   Release automatisch, danach folgt ein manuelles Review durch die
-   Obsidian-Maintainer.
-6. Nach Freigabe genuegt fuer jede weitere Version ein neuer Tag/Release -
-   Nutzer erhalten Updates dann automatisch ueber die
-   Community-Plugin-Verwaltung.
+Obsidian now handles plugin submission through a web form rather than a pull
+request against `obsidian-releases`:
 
-Alternative fuer schnelle, informelle Verteilung ohne Review-Wartezeit: das
-Plugin per [BRAT](https://github.com/TfTHacker/obsidian42-brat) aus dem
-GitHub-Repo installierbar machen (Beta-Reviewer-Auto-Tester), ohne den
-offiziellen Aufnahmeprozess zu durchlaufen.
+1. Push the source code to a **public GitHub repository** (the repo name
+   should match the plugin ID `gtd-board`). `LICENSE` (MIT) is already
+   included.
+2. Make sure the plugin ID in `manifest.json` doesn't collide with an
+   already-listed community plugin.
+3. Push a Git tag matching the version number in `manifest.json` exactly
+   (no `v` prefix), e.g. `git tag 0.1.0 && git push origin 0.1.0`. The
+   included GitHub Actions workflow (`.github/workflows/release.yml`) then
+   builds the plugin, runs typecheck/tests, attests build provenance for
+   `main.js`/`styles.css`, and attaches `main.js`, `manifest.json`, and
+   `styles.css` as release assets automatically.
+4. Add the new version to `versions.json` on every release (mapping plugin
+   version → minimum Obsidian version).
+5. Go to [community.obsidian.md](https://community.obsidian.md), sign in
+   with your Obsidian account, link your GitHub account, and use "Add your
+   plugin" to point it at this repository. The platform reads `manifest.json`
+   from the default branch and pulls the release assets from the GitHub
+   Release whose tag matches the manifest version. An automated check
+   (linting, API-version checks, security patterns) runs first; once that
+   passes, a manual review by the Obsidian team follows before the plugin
+   appears in the in-app Community Plugins browser.
+6. After approval, a new tag/release is enough for every further version -
+   users then get updates automatically through the Community Plugins
+   manager.
 
-## Bekannte Grenzen
+Alternative for quick, informal distribution without the review wait: make
+the plugin installable from the GitHub repo via
+[BRAT](https://github.com/TfTHacker/obsidian42-brat) (Beta Reviewer's Auto
+Tester), bypassing the official submission process.
 
-- In-App-Erinnerungen (Desktop-Benachrichtigung/Notice) funktionieren nur,
-  solange Obsidian laeuft; es gibt keinen App-unabhaengigen Hintergrunddienst.
-  Der ICS-Export deckt diese Luecke ab, indem ein echter Kalender die
-  Faelligkeiten unabhaengig von Obsidian benachrichtigt.
-- Inline-Aufgaben unterstuetzen keine eigene Beschreibung, keine eigene
-  Erinnerungszeit und keine Kontext-Tags im Bearbeiten-Dialog ueber die
-  Inline-Syntax hinaus; inhaltliche Aenderungen ueberfuehren die Aufgabe
-  automatisch in eine Datei.
+## Known limitations
+
+- In-app reminders (desktop notification/notice) only work while Obsidian
+  is running; there's no app-independent background service. The ICS export
+  covers this gap by letting a real calendar app notify you of due dates
+  independently of Obsidian.
+- Inline tasks don't support their own description, their own reminder
+  time, or context tags in the edit dialog beyond the inline syntax; content
+  edits automatically convert the task into a file.
