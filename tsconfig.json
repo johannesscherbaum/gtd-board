@@ -9,6 +9,7 @@
     "noImplicitAny": true,
     "moduleResolution": "node",
     "importHelpers": true,
+    "esModuleInterop": true,
     "isolatedModules": true,
     "strict": true,
     "lib": ["DOM", "ES2020"],
