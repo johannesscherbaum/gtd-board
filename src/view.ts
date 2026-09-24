@@ -436,6 +436,11 @@ export class GtdBoardView extends ItemView {
 		} else {
 			copy.sort((a, b) => a.order - b.order);
 		}
+		// In jeder Lane sollen geplante (mit Faelligkeit) vor ungeplanten Aufgaben stehen -
+		// unabhaengig vom gewaehlten Sortier-Modus. Array.sort ist stabil, daher bleibt die
+		// oben ermittelte Reihenfolge innerhalb der beiden Gruppen (geplant/ungeplant) erhalten;
+		// diese Gruppierung zieht die Aufgaben mit Faelligkeit lediglich nach vorne.
+		copy.sort((a, b) => Number(!a.due) - Number(!b.due));
 		return copy;
 	}
 
@@ -891,6 +896,7 @@ export class GtdBoardView extends ItemView {
 					description: result.description,
 					priority: result.priority,
 					contexts: result.contexts,
+					tags: result.tags,
 					recurrence: result.recurrence,
 					delegatedTo: result.delegatedTo,
 					project: result.project,

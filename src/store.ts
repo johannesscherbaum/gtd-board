@@ -166,13 +166,14 @@ export class GtdStore {
 		description: string;
 		priority?: TaskPriority;
 		contexts?: string[];
+		tags?: string[];
 		recurrence?: RecurrenceRule;
 		delegatedTo?: string;
 		project?: string;
 		due?: string;
 		reminderAt?: string;
 	}): Promise<TFile> {
-		const { laneId, title, description, priority, contexts, recurrence, delegatedTo, project, due, reminderAt } =
+		const { laneId, title, description, priority, contexts, tags, recurrence, delegatedTo, project, due, reminderAt } =
 			options;
 		await this.ensureFolder(this.settings.taskFilesFolder);
 		const baseName = sanitizeFileName(title);
@@ -196,6 +197,7 @@ export class GtdStore {
 				reminder: reminderAt && reminderAt.trim().length > 0 ? reminderAt.trim() : undefined,
 				priority: priority && priority !== "medium" ? priority : undefined,
 				contexts: contexts && contexts.length > 0 ? contexts : undefined,
+				tags: tags && tags.length > 0 ? tags : undefined,
 				recurrence: recurrence,
 				delegatedTo: delegatedTo && delegatedTo.trim().length > 0 ? delegatedTo.trim() : undefined,
 				project: project && project.trim().length > 0 ? project.trim() : undefined,
