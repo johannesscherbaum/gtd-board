@@ -3,7 +3,7 @@
   "name": "GTD Board",
   "version": "0.3.8",
   "minAppVersion": "1.13.0",
-  "description": "Ein anpassbares GTD-Kanban-Board: durchsucht einen Ordner (inkl. Unterordner) nach Aufgaben-Dateien und Inline-Checkboxen, zeigt sie als farbige Swimlanes an und verwaltet Termine mit Desktop-Erinnerungen.",
+  "description": "A customizable GTD Kanban board: scans a folder (including subfolders) for task files and inline checkboxes, displays them as color-coded swimlanes, and manages due dates with desktop reminders.",
   "author": "Johannes",
   "authorUrl": "https://github.com/johannesscherbaum",
   "isDesktopOnly": false

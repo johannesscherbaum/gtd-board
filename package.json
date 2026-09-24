@@ -1,7 +1,7 @@
 {
   "name": "gtd-board",
   "version": "0.3.8",
-  "description": "GTD-Kanban-Board Plugin fuer Obsidian",
+  "description": "GTD Kanban board plugin for Obsidian",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
