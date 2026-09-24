@@ -203,11 +203,10 @@ export default class GtdBoardPlugin extends Plugin {
 			leaf = workspace.getLeaf("tab");
 			await leaf.setViewState({ type: GTD_BOARD_VIEW_TYPE, active: true });
 		}
-		// revealLeaf() liefert erst seit Obsidian 1.7.2 ein Promise (davor void) - unser
-		// minAppVersion ist 1.5.0, deshalb hier bewusst nicht awaiten (funktioniert auf beiden
-		// API-Staenden identisch, nur ohne die Garantie, dass eine "deferred view" bereits
-		// vollstaendig geladen ist, bevor activateView() zurueckkehrt).
-		void workspace.revealLeaf(leaf);
+		// revealLeaf() liefert seit Obsidian 1.7.2 ein Promise, das aufgeloest wird, sobald eine
+		// "deferred view" vollstaendig geladen ist - minAppVersion ist entsprechend 1.7.2,
+		// deshalb hier ganz normal awaiten.
+		await workspace.revealLeaf(leaf);
 	}
 
 	async refreshBoardViews(): Promise<void> {
