@@ -10,6 +10,7 @@ import {
 	computeEffectiveReminder,
 	countSubtasks,
 	daysSince,
+	deriveProjectFromPath,
 	dueUrgency,
 	inlineTaskId,
 	isPathInFolder,
@@ -250,6 +251,46 @@ describe("inlineTaskId", () => {
 		const c = inlineTaskId("GTD/Notizen.md", "Anderes tun");
 		expect(a).toBe(b);
 		expect(a).not.toBe(c);
+	});
+});
+
+describe("deriveProjectFromPath", () => {
+	it("leitet den unmittelbaren Unterordner als Projekt ab", () => {
+		expect(deriveProjectFromPath("Projects/Garten/bewaesserung.md", "Projects")).toBe("Garten");
+	});
+
+	it("beruecksichtigt nur die erste Ordnerebene, nicht tiefere Verschachtelungen", () => {
+		expect(deriveProjectFromPath("Projects/Garten/Sub/aufgabe.md", "Projects")).toBe("Garten");
+	});
+
+	it("gibt undefined zurueck, wenn die Datei direkt im Root-Ordner liegt", () => {
+		expect(deriveProjectFromPath("Projects/bewaesserung.md", "Projects")).toBeUndefined();
+	});
+
+	it("gibt undefined zurueck, wenn die Datei ausserhalb des rootFolder liegt", () => {
+		expect(deriveProjectFromPath("Andere/Garten/aufgabe.md", "Projects")).toBeUndefined();
+	});
+
+	it("gibt undefined zurueck fuer einen leeren rootFolder", () => {
+		expect(deriveProjectFromPath("irgendwas/Projekt/aufgabe.md", "")).toBeUndefined();
+	});
+
+	it("funktioniert korrekt mit Aufgaben-Ordner als Prefix (taskFilesFolder-Muster)", () => {
+		expect(deriveProjectFromPath("GTD/Aufgaben/SAP-Transformation/angebot.md", "GTD/Aufgaben")).toBe(
+			"SAP-Transformation"
+		);
+	});
+
+	it("gibt undefined zurueck, wenn Datei direkt im taskFilesFolder liegt", () => {
+		expect(deriveProjectFromPath("GTD/Aufgaben/angebot.md", "GTD/Aufgaben")).toBeUndefined();
+	});
+
+	it("lehnt Praefix-Kollisionen ohne Trennzeichen ab", () => {
+		expect(deriveProjectFromPath("ProjectsX/Garten/aufgabe.md", "Projects")).toBeUndefined();
+	});
+
+	it("ignoriert abschliessende Slashes im rootFolder", () => {
+		expect(deriveProjectFromPath("Projects/Garten/aufgabe.md", "Projects/")).toBe("Garten");
 	});
 });
 

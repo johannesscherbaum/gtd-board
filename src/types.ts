@@ -140,6 +140,8 @@ export interface GtdBoardSettings {
 	agendaEnabled: boolean;
 	/** Ordner (im Vault), aus dem Agenda-Eintraege gelesen werden. */
 	agendaFolder: string;
+	/** Namen der Projekte (oder "__no_project__"), die in der Projekteansicht eingeklappt sind. */
+	collapsedProjects: string[];
 }
 
 export const DEFAULT_LANES: LaneConfig[] = [
@@ -171,4 +173,5 @@ export const DEFAULT_SETTINGS: GtdBoardSettings = {
 	autoPromoteInboxOnDueDate: true,
 	agendaEnabled: false,
 	agendaFolder: "GTD/Agendas",
+	collapsedProjects: [],
 };

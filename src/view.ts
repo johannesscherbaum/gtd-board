@@ -24,7 +24,7 @@ import { TaskModal, confirmDialog } from "./modals";
 
 export const GTD_BOARD_VIEW_TYPE = "gtd-board-view";
 
-type ViewMode = "board" | "agenda" | "week";
+type ViewMode = "board" | "agenda" | "week" | "projects";
 
 function sortLabel(mode: SortMode): string {
 	switch (mode) {
@@ -236,12 +236,13 @@ export class GtdBoardView extends ItemView {
 		viewModeSelect.createEl("option", { text: t("view.viewMode.board"), value: "board" });
 		viewModeSelect.createEl("option", { text: t("view.viewMode.agenda"), value: "agenda" });
 		viewModeSelect.createEl("option", { text: t("view.viewMode.week"), value: "week" });
+		viewModeSelect.createEl("option", { text: t("view.viewMode.projects"), value: "projects" });
 		viewModeSelect.value = this.viewMode;
 		viewModeSelect.addEventListener("change", () => {
 			this.viewMode = viewModeSelect.value as ViewMode;
-			// Sortier-Dropdown betrifft nur die Lane-interne Reihenfolge im Kanban - in Agenda und
+			// Sortier-Dropdown: sinnvoll im Kanban und in der Projekteansicht; in Agenda und
 			// Woche ist die Sortierung fest (nach Faelligkeit bzw. Kalendertag).
-			this.sortSelectEl.toggle(this.viewMode === "board");
+			this.sortSelectEl.toggle(this.viewMode === "board" || this.viewMode === "projects");
 			this.renderBoard();
 		});
 
@@ -302,12 +303,16 @@ export class GtdBoardView extends ItemView {
 		this.boardEl.empty();
 		this.boardEl.removeClass("gtd-board-agenda-mode");
 		this.boardEl.removeClass("gtd-board-week-mode");
+		this.boardEl.removeClass("gtd-board-projects-mode");
 		if (this.viewMode === "agenda") {
 			this.boardEl.addClass("gtd-board-agenda-mode");
 			this.boardEl.appendChild(this.renderAgenda());
 		} else if (this.viewMode === "week") {
 			this.boardEl.addClass("gtd-board-week-mode");
 			this.boardEl.appendChild(this.renderWeek());
+		} else if (this.viewMode === "projects") {
+			this.boardEl.addClass("gtd-board-projects-mode");
+			this.boardEl.appendChild(this.renderProjects());
 		} else {
 			if (this.plugin.settings.agendaEnabled) {
 				this.boardEl.appendChild(this.renderAgendaLane());
@@ -418,6 +423,90 @@ export class GtdBoardView extends ItemView {
 		}
 
 		return container;
+	}
+
+	/**
+	 * Projekteansicht: alle offenen Aufgaben (ohne Agenda-Eintraege) gruppiert nach Projekt.
+	 * Jede Gruppe ist ein- und ausklappbar; Aufgaben ohne Projekt landen unter "Kein Projekt".
+	 */
+	private renderProjects(): HTMLElement {
+		const container = createDiv({ cls: "gtd-projects" });
+
+		const openTasks = this.tasks.filter((t) => !t.done && t.laneId !== AGENDA_LANE_ID);
+		const filtered = openTasks.filter((t) => this.matchesFilter(t));
+
+		const byProject = new Map<string, GtdTask[]>();
+		const noProject: GtdTask[] = [];
+		for (const task of filtered) {
+			if (task.project) {
+				if (!byProject.has(task.project)) byProject.set(task.project, []);
+				byProject.get(task.project)!.push(task);
+			} else {
+				noProject.push(task);
+			}
+		}
+
+		const projectNames = Array.from(byProject.keys()).sort((a, b) => a.localeCompare(b, intlLocale()));
+
+		if (projectNames.length === 0 && noProject.length === 0) {
+			container.createDiv({ cls: "gtd-projects-empty", text: t("view.projects.empty") });
+			return container;
+		}
+
+		for (const name of projectNames) {
+			container.appendChild(this.renderProjectSection(name, this.sortTasks(byProject.get(name)!)));
+		}
+		if (noProject.length > 0) {
+			container.appendChild(this.renderProjectSection(null, this.sortTasks(noProject)));
+		}
+
+		return container;
+	}
+
+	private renderProjectSection(project: string | null, tasks: GtdTask[]): HTMLElement {
+		const sectionKey = project ?? "__no_project__";
+		const collapsed = this.plugin.settings.collapsedProjects.includes(sectionKey);
+
+		const sectionEl = createDiv({ cls: "gtd-project-section" });
+		if (collapsed) sectionEl.addClass("gtd-project-section-collapsed");
+
+		const header = sectionEl.createDiv({ cls: "gtd-project-section-header" });
+
+		const toggleBtn = header.createEl("button", { cls: "gtd-project-section-toggle" });
+		toggleBtn.setText(collapsed ? "▸" : "▾");
+		toggleBtn.setAttribute("aria-label", collapsed ? t("view.lane.expand") : t("view.lane.collapse"));
+		toggleBtn.addEventListener("click", (evt) => {
+			evt.stopPropagation();
+			void this.toggleProjectCollapsed(sectionKey);
+		});
+
+		header.createSpan({
+			cls: "gtd-project-section-title",
+			text: project ? `+${project}` : t("view.projects.noProject"),
+		});
+		header.createSpan({ cls: "gtd-project-section-count", text: String(tasks.length) });
+
+		if (!collapsed) {
+			const body = sectionEl.createDiv({ cls: "gtd-project-section-body" });
+			for (const task of tasks) {
+				body.appendChild(this.renderCard(task, { showHomeLaneBadge: true }));
+			}
+		}
+
+		return sectionEl;
+	}
+
+	/** Merkt sich den Eingeklappt-Status eines Projekts persistent und zeichnet das Board neu. */
+	private async toggleProjectCollapsed(projectKey: string): Promise<void> {
+		const collapsed = new Set(this.plugin.settings.collapsedProjects);
+		if (collapsed.has(projectKey)) {
+			collapsed.delete(projectKey);
+		} else {
+			collapsed.add(projectKey);
+		}
+		this.plugin.settings.collapsedProjects = Array.from(collapsed);
+		await this.plugin.saveSettings();
+		this.renderBoard();
 	}
 
 	private matchesFilter(task: GtdTask): boolean {

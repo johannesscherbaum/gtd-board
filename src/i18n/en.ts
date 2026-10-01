@@ -205,10 +205,11 @@ export const en = {
 			all: "All projects",
 		},
 		viewMode: {
-			title: "View: Kanban board, agenda list, or week calendar",
+			title: "View: Kanban board, agenda list, week calendar, or projects view",
 			board: "Kanban",
 			agenda: "Agenda",
 			week: "Week",
+			projects: "Projects",
 		},
 		sort: {
 			title: "Sort order of cards within a lane",
@@ -235,6 +236,10 @@ export const en = {
 		},
 		agenda: {
 			empty: "No open tasks.",
+		},
+		projects: {
+			empty: "No open tasks.",
+			noProject: "No project",
 		},
 		week: {
 			prevWeek: "Previous week",

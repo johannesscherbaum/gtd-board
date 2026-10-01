@@ -4,6 +4,7 @@ import {
 	assignSequentialOrder,
 	bounceRecurringInlineLine,
 	buildTaskFileContent,
+	deriveProjectFromPath,
 	fileTaskId,
 	inlineTaskId,
 	isCheckboxLine,
@@ -108,6 +109,14 @@ export class GtdStore {
 		}
 		const done = frontmatter.done === true || frontmatter.done === "true";
 		const id = fileTaskId(file.path);
+		// Explizit gesetztes Projekt hat immer Vorrang; nur wenn kein Projekt vorhanden ist,
+		// wird es aus dem unmittelbaren Unterordner relativ zum taskFilesFolder abgeleitet.
+		const explicitProject =
+			typeof frontmatter.project === "string" && frontmatter.project.trim().length > 0
+				? frontmatter.project.trim()
+				: undefined;
+		const project = explicitProject
+			?? (!isAgendaFile ? deriveProjectFromPath(file.path, this.settings.taskFilesFolder) : undefined);
 		return {
 			id,
 			source: "file",
@@ -122,7 +131,7 @@ export class GtdStore {
 			tags: Array.isArray(frontmatter.tags) ? frontmatter.tags : [],
 			contexts: Array.isArray(frontmatter.contexts) ? frontmatter.contexts : [],
 			delegatedTo: typeof frontmatter.delegatedTo === "string" ? frontmatter.delegatedTo : undefined,
-			project: typeof frontmatter.project === "string" ? frontmatter.project : undefined,
+			project,
 			person: typeof frontmatter.person === "string" ? frontmatter.person : undefined,
 			filePath: file.path,
 			order: typeof frontmatter.order === "number" ? frontmatter.order : 0,
@@ -145,6 +154,8 @@ export class GtdStore {
 		const content = await this.app.vault.read(file);
 		const lines = content.split(/\r?\n/);
 		const tasks: GtdTask[] = [];
+		// Ableitbares Projekt einmalig pro Datei berechnen (alle Inline-Aufgaben teilen denselben Pfad).
+		const derivedProject = deriveProjectFromPath(file.path, this.settings.watchFolder);
 		lines.forEach((line, index) => {
 			const parsed = parseInlineLine(line, this.settings.lanes);
 			if (!parsed || parsed.title.length === 0) return;
@@ -166,7 +177,8 @@ export class GtdStore {
 				tags: parsed.tags,
 				contexts: parsed.contexts,
 				delegatedTo: parsed.delegatedTo,
-				project: parsed.project,
+				// Explizit gesetztes Projekt (+Marker) gewinnt; sonst Ordner-Ableitung.
+				project: parsed.project ?? derivedProject,
 				filePath: file.path,
 				line: index,
 				order: index,

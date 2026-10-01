@@ -483,6 +483,28 @@ export function hashString(input: string): string {
 	return (hash >>> 0).toString(36);
 }
 
+/**
+ * Leitet den Projektnamen aus dem unmittelbaren Unterordner einer Datei relativ zum
+ * uebergebenen rootFolder ab. Nur die erste Ordnerebene unterhalb von rootFolder zaehlt
+ * als Projekt; tiefere Verschachtelungen werden ignoriert. Liegt die Datei direkt im
+ * rootFolder (kein Unterordner), wird undefined zurueckgegeben. Leerer rootFolder: undefined.
+ *
+ * Beispiele (rootFolder = "Projects"):
+ *   "Projects/Garten/bewaesserung.md"     → "Garten"
+ *   "Projects/Garten/Sub/aufgabe.md"      → "Garten"
+ *   "Projects/bewaesserung.md"            → undefined  (direkt im Root)
+ *   "Andere/Garten/aufgabe.md"            → undefined  (ausserhalb des rootFolder)
+ */
+export function deriveProjectFromPath(filePath: string, rootFolder: string): string | undefined {
+	const normFolder = rootFolder.replace(/\/+$/, "");
+	if (!normFolder) return undefined;
+	if (!filePath.startsWith(normFolder + "/")) return undefined;
+	const relative = filePath.slice(normFolder.length + 1);
+	const slashIdx = relative.indexOf("/");
+	if (slashIdx <= 0) return undefined;
+	return relative.slice(0, slashIdx) || undefined;
+}
+
 /** Prueft, ob ein Vault-Pfad innerhalb (oder gleich) eines Ordnerpfads liegt. */
 export function isPathInFolder(path: string, folder: string): boolean {
 	const normFolder = folder.replace(/\/+$/, "");

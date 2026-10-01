@@ -187,6 +187,9 @@ export default class GtdBoardPlugin extends Plugin {
 		if (typeof this.settings.agendaFolder !== "string" || this.settings.agendaFolder.trim().length === 0) {
 			this.settings.agendaFolder = DEFAULT_SETTINGS.agendaFolder;
 		}
+		if (!Array.isArray(this.settings.collapsedProjects)) {
+			this.settings.collapsedProjects = [];
+		}
 	}
 
 	async saveSettings(): Promise<void> {

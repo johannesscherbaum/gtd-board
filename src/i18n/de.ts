@@ -206,10 +206,11 @@ export const de = {
 			all: "Alle Projekte",
 		},
 		viewMode: {
-			title: "Ansicht: Kanban-Board, Agenda-Liste oder Wochenkalender",
+			title: "Ansicht: Kanban-Board, Agenda-Liste, Wochenkalender oder Projekteansicht",
 			board: "Kanban",
 			agenda: "Agenda",
 			week: "Woche",
+			projects: "Projekte",
 		},
 		sort: {
 			title: "Sortierung der Karten innerhalb einer Lane",
@@ -236,6 +237,10 @@ export const de = {
 		},
 		agenda: {
 			empty: "Keine offenen Aufgaben.",
+		},
+		projects: {
+			empty: "Keine offenen Aufgaben.",
+			noProject: "Kein Projekt",
 		},
 		week: {
 			prevWeek: "Vorherige Woche",
