@@ -240,6 +240,41 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 			},
 			{
 				type: "group",
+				heading: t("settings.agendaHeading"),
+				items: [
+					{
+						name: t("settings.agendaEnable.name"),
+						desc: t("settings.agendaEnable.desc"),
+						render: (setting) => {
+							setting.addToggle((toggle) =>
+								toggle.setValue(settings.agendaEnabled).onChange(async (value) => {
+									settings.agendaEnabled = value;
+									await this.plugin.saveSettings();
+									await this.plugin.refreshBoardViews();
+								})
+							);
+						},
+					},
+					{
+						name: t("settings.agendaFolder.name"),
+						desc: t("settings.agendaFolder.desc"),
+						render: (setting) => {
+							setting.addText((text) =>
+								text
+									.setPlaceholder(t("settings.agendaFolder.placeholder"))
+									.setValue(settings.agendaFolder)
+									.onChange(async (value) => {
+										settings.agendaFolder = value.trim();
+										await this.plugin.saveSettings();
+										await this.plugin.refreshBoardViews();
+									})
+							);
+						},
+					},
+				],
+			},
+			{
+				type: "group",
 				heading: t("settings.swimlanesHeading"),
 				desc: t("settings.swimlanesDesc"),
 				items: [

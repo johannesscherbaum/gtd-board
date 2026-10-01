@@ -21,12 +21,17 @@ export interface TaskModalResult {
 	tags: string[];
 	delegatedTo?: string;
 	project?: string;
+	person?: string;
 }
 
 export interface TaskModalOptions {
 	mode: "create" | "edit";
 	laneId: string;
 	task?: GtdTask;
+	/** Person-Feld anzeigen (fuer Agenda-Eintraege). */
+	showPersonField?: boolean;
+	/** Ueberschreibt den Standard-Fenstertitel des Dialogs. */
+	titleOverride?: string;
 	onSubmit: (result: TaskModalResult) => Promise<void>;
 }
 
@@ -46,6 +51,7 @@ export class TaskModal extends Modal {
 	private tags: string;
 	private delegatedTo: string;
 	private project: string;
+	private person: string;
 	private previewComponent = new Component();
 	/** Steuert, ob im Beschreibungs-Editor Markdown-Quelltext oder die gerenderte Vorschau angezeigt wird. */
 	private descriptionShowingPreview = false;
@@ -63,6 +69,7 @@ export class TaskModal extends Modal {
 		this.tags = task?.tags.join(", ") ?? "";
 		this.delegatedTo = task?.delegatedTo ?? "";
 		this.project = task?.project ?? "";
+		this.person = task?.person ?? "";
 	}
 
 	/** Zerlegt einen gespeicherten Datums(-zeit)-Wert in Datums- und Uhrzeit-Teil fuer die getrennten Inputs. */
@@ -104,7 +111,10 @@ export class TaskModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.addClass("gtd-task-modal");
-		this.setTitle(this.options.mode === "create" ? t("taskModal.titleCreate") : t("taskModal.titleEdit"));
+		this.setTitle(
+			this.options.titleOverride ??
+			(this.options.mode === "create" ? t("taskModal.titleCreate") : t("taskModal.titleEdit"))
+		);
 
 		new Setting(contentEl).setName(t("taskModal.title")).addText((text) => {
 			text.setValue(this.title).onChange((v) => (this.title = v));
@@ -229,6 +239,16 @@ export class TaskModal extends Modal {
 				text.setPlaceholder(t("taskModal.projectPlaceholder")).setValue(this.project).onChange((v) => (this.project = v));
 			});
 
+		if (this.options.showPersonField) {
+			new Setting(contentEl)
+				.setName(t("taskModal.person"))
+				.setDesc(t("taskModal.personDesc"))
+				.addText((text) => {
+					text.setPlaceholder(t("taskModal.personPlaceholder")).setValue(this.person).onChange((v) => (this.person = v));
+					text.inputEl.addClass("gtd-modal-person-input");
+				});
+		}
+
 		new Setting(contentEl)
 			.setName(t("taskModal.delegatedTo"))
 			.setDesc(t("taskModal.delegatedToDesc"))
@@ -285,6 +305,7 @@ export class TaskModal extends Modal {
 			tags,
 			delegatedTo: this.delegatedTo.trim() || undefined,
 			project: this.project.trim() || undefined,
+			person: this.options.showPersonField ? (this.person.trim() || undefined) : undefined,
 		});
 		this.close();
 	}

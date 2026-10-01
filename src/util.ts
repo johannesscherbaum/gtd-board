@@ -25,6 +25,7 @@ export interface TaskFrontmatter {
 	contexts?: string[];
 	delegatedTo?: string;
 	project?: string;
+	person?: string;
 	order?: number;
 	created?: string;
 	[key: string]: unknown;

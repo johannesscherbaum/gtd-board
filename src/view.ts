@@ -1,6 +1,6 @@
 import { ItemView, Menu, MarkdownRenderer, Notice, Platform, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 import type GtdBoardPlugin from "./main";
-import { GtdTask, LaneConfig, SortMode } from "./types";
+import { AGENDA_LANE_ID, GtdTask, LaneConfig, SortMode } from "./types";
 import {
 	addDays,
 	countSubtasks,
@@ -309,6 +309,9 @@ export class GtdBoardView extends ItemView {
 			this.boardEl.addClass("gtd-board-week-mode");
 			this.boardEl.appendChild(this.renderWeek());
 		} else {
+			if (this.plugin.settings.agendaEnabled) {
+				this.boardEl.appendChild(this.renderAgendaLane());
+			}
 			for (const lane of this.plugin.settings.lanes) {
 				this.boardEl.appendChild(this.renderLane(lane));
 			}
@@ -456,6 +459,91 @@ export class GtdBoardView extends ItemView {
 		return [...tasks].sort((a, b) => this.compareByDueAscending(a, b));
 	}
 
+	/** Rendert die dedizierte Agendas-Lane, gruppiert nach Person. */
+	private renderAgendaLane(): HTMLElement {
+		const collapsed = this.plugin.settings.collapsedLanes.includes(AGENDA_LANE_ID);
+		const laneColor = "#5ac8fa";
+
+		const laneEl = createDiv({ cls: "gtd-lane gtd-lane-agenda" });
+		if (collapsed) laneEl.addClass("gtd-lane-collapsed");
+		laneEl.setCssProps({ "--lane-color": laneColor });
+
+		laneEl.addEventListener("dragover", (evt) => {
+			evt.preventDefault();
+			laneEl.addClass("gtd-lane-dragover");
+		});
+		laneEl.addEventListener("dragleave", () => laneEl.removeClass("gtd-lane-dragover"));
+		laneEl.addEventListener("drop", (evt) => {
+			evt.preventDefault();
+			laneEl.removeClass("gtd-lane-dragover");
+			// Agenda-Lane nimmt keine regulaeren Aufgaben per Drag & Drop an.
+		});
+
+		const header = laneEl.createDiv({ cls: "gtd-lane-header" });
+
+		const toggleBtn = header.createEl("button", { cls: "gtd-lane-toggle" });
+		toggleBtn.setText(collapsed ? "▸" : "▾");
+		toggleBtn.setAttribute("aria-label", collapsed ? t("view.lane.expand") : t("view.lane.collapse"));
+		toggleBtn.addEventListener("click", (evt) => {
+			evt.stopPropagation();
+			void this.toggleLaneCollapsed(AGENDA_LANE_ID);
+		});
+
+		header.createSpan({ cls: "gtd-lane-dot" });
+		header.createSpan({ cls: "gtd-lane-title", text: t("view.agendaLane.name") });
+
+		const agendaItemsAll = this.tasks.filter((t) => t.laneId === AGENDA_LANE_ID && !t.done);
+		const agendaItemsFiltered = agendaItemsAll.filter((t) => this.matchesFilter(t));
+		header.createSpan({ cls: "gtd-lane-count", text: String(agendaItemsAll.length) });
+
+		if (!collapsed) {
+			const addBtn = header.createEl("button", { cls: "gtd-lane-add", text: "+" });
+			addBtn.setAttribute("aria-label", t("view.agendaLane.add"));
+			addBtn.addEventListener("click", () => this.openCreateAgendaModal());
+		}
+
+		if (!collapsed) {
+			const body = laneEl.createDiv({ cls: "gtd-lane-body" });
+
+			if (agendaItemsFiltered.length === 0) {
+				body.createDiv({ cls: "gtd-agenda-lane-empty", text: t("view.agendaLane.empty") });
+			} else {
+				const sorted = this.sortByDueAscending(agendaItemsFiltered);
+
+				// Gruppierung nach Person
+				const byPerson = new Map<string, GtdTask[]>();
+				const noPerson: GtdTask[] = [];
+				for (const item of sorted) {
+					if (item.person) {
+						if (!byPerson.has(item.person)) byPerson.set(item.person, []);
+						byPerson.get(item.person)!.push(item);
+					} else {
+						noPerson.push(item);
+					}
+				}
+
+				const persons = Array.from(byPerson.keys()).sort((a, b) => a.localeCompare(b, intlLocale()));
+
+				for (const person of persons) {
+					const group = body.createDiv({ cls: "gtd-agenda-person-group" });
+					group.createDiv({ cls: "gtd-agenda-person-header", text: `👤 ${person}` });
+					for (const item of byPerson.get(person)!) {
+						group.appendChild(this.renderCard(item, { showPersonBadge: false }));
+					}
+				}
+
+				if (noPerson.length > 0) {
+					const group = body.createDiv({ cls: "gtd-agenda-person-group" });
+					for (const item of noPerson) {
+						group.appendChild(this.renderCard(item, {}));
+					}
+				}
+			}
+		}
+
+		return laneEl;
+	}
+
 	private renderLane(lane: LaneConfig): HTMLElement {
 		const collapsed = this.plugin.settings.collapsedLanes.includes(lane.id);
 
@@ -548,7 +636,7 @@ export class GtdBoardView extends ItemView {
 
 	private renderCard(
 		task: GtdTask,
-		options: { showHomeLaneBadge?: boolean; enableReorder?: boolean } = {}
+		options: { showHomeLaneBadge?: boolean; enableReorder?: boolean; showPersonBadge?: boolean } = {}
 	): HTMLElement {
 		const card = createDiv({ cls: ["gtd-card", `gtd-card-priority-${task.priority ?? "medium"}`] });
 		if (task.source === "inline") card.addClass("gtd-card-inline");
@@ -668,11 +756,24 @@ export class GtdBoardView extends ItemView {
 
 		// Tatsaechliche Lane unabhaengig davon, ob sie als Badge gezeigt wird - wird fuer die
 		// Someday/Maybe-Auffrischung gebraucht, auch im normalen Kanban.
-		const actualLane = this.plugin.settings.lanes.find((l) => l.id === this.displayLaneId(task));
+		const agendaVirtualLane: LaneConfig = {
+			id: AGENDA_LANE_ID,
+			name: t("view.agendaLane.name"),
+			color: "#5ac8fa",
+			tag: "",
+		};
+		const actualLane =
+			task.laneId === AGENDA_LANE_ID
+				? agendaVirtualLane
+				: this.plugin.settings.lanes.find((l) => l.id === this.displayLaneId(task));
 		// In der "Geplant"-Uebersichts-Lane, der Agenda- und der Wochenansicht zusaetzlich die
 		// eigentliche Lane der Aufgabe zeigen, da die Karte dort ausserhalb ihrer Lane dargestellt
 		// wird - dezent wie ein Tag statt als auffaelliges Badge, um die Karte nicht zu dominieren.
 		const homeLane = options.showHomeLaneBadge ? actualLane : undefined;
+
+		// Person-Badge: standardmaessig anzeigen (showPersonBadge !== false), es sei denn,
+		// die Person steht bereits als Gruppenüberschrift ueber der Karte (Agendas-Lane).
+		const showPerson = task.person && options.showPersonBadge !== false;
 
 		// Auffrischungs-Markierungen: "Wartet auf" ohne Regung seit X Tagen (Follow-up-Nudge) bzw.
 		// "Irgendwann/Vielleicht" ohne Review seit X Tagen - beides GTD-Kernpraxis (Tickler/Review),
@@ -691,9 +792,19 @@ export class GtdBoardView extends ItemView {
 			task.delegatedTo ||
 			task.project ||
 			homeLane ||
-			isStaleSomeday
+			isStaleSomeday ||
+			showPerson
 		) {
 			const tagsEl = card.createDiv({ cls: "gtd-card-tags" });
+			if (showPerson) {
+				tagsEl.createSpan({
+					cls: "gtd-card-tag gtd-card-tag-person",
+					text: `👤 ${task.person}`,
+					attr: {
+						title: t("view.card.agendaPersonTitle", { name: task.person! }),
+					},
+				});
+			}
 			if (homeLane) {
 				const laneTag = tagsEl.createSpan({ cls: "gtd-card-tag gtd-card-tag-lane", text: homeLane.name });
 				laneTag.setCssProps({ "--home-lane-color": homeLane.color });
@@ -907,18 +1018,48 @@ export class GtdBoardView extends ItemView {
 		modal.open();
 	}
 
+	private openCreateAgendaModal(): void {
+		const modal = new TaskModal(this.app, this.plugin, {
+			mode: "create",
+			laneId: AGENDA_LANE_ID,
+			showPersonField: true,
+			titleOverride: t("agendaModal.titleCreate"),
+			onSubmit: async (result) => {
+				await this.plugin.store.createAgendaFile({
+					title: result.title,
+					person: result.person,
+					description: result.description,
+					priority: result.priority,
+					contexts: result.contexts,
+					tags: result.tags,
+					recurrence: result.recurrence,
+					project: result.project,
+					due: result.due,
+					reminderAt: result.reminderAt,
+				});
+				await this.refresh();
+			},
+		});
+		modal.open();
+	}
+
 	private openEditModal(task: GtdTask): void {
+		const isAgendaItem = task.laneId === AGENDA_LANE_ID;
 		const modal = new TaskModal(this.app, this.plugin, {
 			mode: "edit",
 			laneId: task.laneId,
 			task,
+			showPersonField: isAgendaItem,
+			titleOverride: isAgendaItem ? t("agendaModal.titleEdit") : undefined,
 			onSubmit: async (result) => {
-				const promotedLaneId = shouldPromoteFromInbox(
-					task.laneId,
-					result.due,
-					this.plugin.settings.lanes,
-					this.plugin.settings.autoPromoteInboxOnDueDate
-				);
+				const promotedLaneId = isAgendaItem
+					? undefined
+					: shouldPromoteFromInbox(
+							task.laneId,
+							result.due,
+							this.plugin.settings.lanes,
+							this.plugin.settings.autoPromoteInboxOnDueDate
+					  );
 				if (task.source === "file") {
 					await this.plugin.store.updateTaskFile(task, result);
 					if (promotedLaneId) {

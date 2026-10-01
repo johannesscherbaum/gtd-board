@@ -238,6 +238,39 @@
 	padding: 24px;
 }
 
+/* Agendas-Lane: Persongruppen und Karten */
+.gtd-agenda-person-group {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-bottom: 8px;
+}
+
+.gtd-agenda-person-group:last-child {
+	margin-bottom: 0;
+}
+
+.gtd-agenda-person-header {
+	font-size: 0.8em;
+	font-weight: 600;
+	color: var(--text-muted);
+	padding: 4px 2px 2px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 4px;
+	letter-spacing: 0.02em;
+}
+
+.gtd-agenda-lane-empty {
+	color: var(--text-muted);
+	text-align: center;
+	padding: 24px;
+}
+
+.gtd-card-tag-person {
+	color: #5ac8fa;
+	font-weight: 500;
+}
+
 /* Lanes wachsen/schrumpfen dynamisch mit dem verfuegbaren Platz: bei wenigen offenen Lanes
    teilen sie sich die volle Breite (bis max-width), bei vielen schrumpfen sie bis min-width
    und das Board scrollt horizontal (siehe .gtd-board { overflow-x: auto }). Eingeklappte

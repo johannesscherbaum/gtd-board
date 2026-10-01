@@ -53,6 +53,13 @@ export const de = {
 		save: "Speichern",
 		cancel: "Abbrechen",
 		titleRequired: "Bitte einen Titel angeben.",
+		person: "Person",
+		personDesc: "Person, mit der dieser Agendapunkt besprochen werden soll.",
+		personPlaceholder: "z. B. Max Mustermann",
+	},
+	agendaModal: {
+		titleCreate: "Neuer Agendapunkt",
+		titleEdit: "Agendapunkt bearbeiten",
 	},
 	quickCapture: {
 		title: "Schnellerfassung",
@@ -149,6 +156,16 @@ export const de = {
 			placeholder: "GTD/Termine.ics",
 		},
 		exportNow: "Jetzt exportieren",
+		agendaHeading: "Agendas",
+		agendaEnable: {
+			name: "Agendas-Lane anzeigen",
+			desc: "Agenda-Eintraege aus dem konfigurierten Ordner in einer eigenen Lane auf dem Board anzeigen.",
+		},
+		agendaFolder: {
+			name: "Agendas-Ordner",
+			desc: "Ordner, aus dem Agenda-Eintraege (Gespraechsthemen mit Personen) gelesen und neu angelegt werden.",
+			placeholder: "GTD/Agendas",
+		},
 		swimlanesHeading: "Swimlanes",
 		swimlanesDesc: "Basierend auf GTD, aber frei anpassbar. Der Tag wird verwendet, um Inline-Checkboxen einer Lane zuzuordnen.",
 		addLane: "Lane hinzufuegen",
@@ -233,6 +250,11 @@ export const de = {
 			add: "Aufgabe hinzufuegen",
 			wipLimitExceeded: "WIP-Limit ueberschritten",
 		},
+		agendaLane: {
+			name: "Agendas",
+			add: "Agendapunkt hinzufuegen",
+			empty: "Keine offenen Agendapunkte.",
+		},
 		card: {
 			doneCheckboxTitle: "Als erledigt markieren / zurueckholen",
 			priorityTitle: "Prioritaet: {priority}",
@@ -243,6 +265,7 @@ export const de = {
 			delegatedToTitle: "Delegiert an {name}",
 			staleSomedayText: "⏳ seit {days}d",
 			staleSomedayTitle: "Seit laengerem nicht mehr durchgesehen - beim naechsten Wochenrueckblick pruefen.",
+			agendaPersonTitle: "Agendapunkt fuer {name}",
 		},
 		contextMenu: {
 			edit: "Bearbeiten",

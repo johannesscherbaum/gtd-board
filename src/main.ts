@@ -89,21 +89,35 @@ export default class GtdBoardPlugin extends Plugin {
 
 		this.registerEvent(
 			this.app.vault.on("modify", (file) => {
-				if (file instanceof TFile && isPathInFolder(file.path, this.settings.watchFolder)) {
+				if (
+					file instanceof TFile &&
+					(isPathInFolder(file.path, this.settings.watchFolder) ||
+						(this.settings.agendaEnabled &&
+							isPathInFolder(file.path, this.settings.agendaFolder)))
+				) {
 					this.debouncedRefresh();
 				}
 			})
 		);
 		this.registerEvent(
 			this.app.vault.on("create", (file) => {
-				if (file instanceof TFile && isPathInFolder(file.path, this.settings.watchFolder)) {
+				if (
+					file instanceof TFile &&
+					(isPathInFolder(file.path, this.settings.watchFolder) ||
+						(this.settings.agendaEnabled &&
+							isPathInFolder(file.path, this.settings.agendaFolder)))
+				) {
 					this.debouncedRefresh();
 				}
 			})
 		);
 		this.registerEvent(
 			this.app.vault.on("delete", (file) => {
-				if (isPathInFolder(file.path, this.settings.watchFolder)) {
+				if (
+					isPathInFolder(file.path, this.settings.watchFolder) ||
+					(this.settings.agendaEnabled &&
+						isPathInFolder(file.path, this.settings.agendaFolder))
+				) {
 					this.debouncedRefresh();
 				}
 			})
@@ -112,7 +126,10 @@ export default class GtdBoardPlugin extends Plugin {
 			this.app.vault.on("rename", (file, oldPath) => {
 				if (
 					isPathInFolder(file.path, this.settings.watchFolder) ||
-					isPathInFolder(oldPath, this.settings.watchFolder)
+					isPathInFolder(oldPath, this.settings.watchFolder) ||
+					(this.settings.agendaEnabled &&
+						(isPathInFolder(file.path, this.settings.agendaFolder) ||
+							isPathInFolder(oldPath, this.settings.agendaFolder)))
 				) {
 					this.debouncedRefresh();
 				}
@@ -163,6 +180,12 @@ export default class GtdBoardPlugin extends Plugin {
 		}
 		if (typeof this.settings.autoPromoteInboxOnDueDate !== "boolean") {
 			this.settings.autoPromoteInboxOnDueDate = DEFAULT_SETTINGS.autoPromoteInboxOnDueDate;
+		}
+		if (typeof this.settings.agendaEnabled !== "boolean") {
+			this.settings.agendaEnabled = DEFAULT_SETTINGS.agendaEnabled;
+		}
+		if (typeof this.settings.agendaFolder !== "string" || this.settings.agendaFolder.trim().length === 0) {
+			this.settings.agendaFolder = DEFAULT_SETTINGS.agendaFolder;
 		}
 	}
 

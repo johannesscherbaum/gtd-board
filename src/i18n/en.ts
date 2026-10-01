@@ -53,6 +53,13 @@ export const en = {
 		save: "Save",
 		cancel: "Cancel",
 		titleRequired: "Please enter a title.",
+		person: "Person",
+		personDesc: "Person to discuss this agenda item with.",
+		personPlaceholder: "e.g. Max Mustermann",
+	},
+	agendaModal: {
+		titleCreate: "New agenda item",
+		titleEdit: "Edit agenda item",
 	},
 	quickCapture: {
 		title: "Quick capture",
@@ -148,6 +155,16 @@ export const en = {
 			placeholder: "GTD/Events.ics",
 		},
 		exportNow: "Export now",
+		agendaHeading: "Agendas",
+		agendaEnable: {
+			name: "Show agendas lane",
+			desc: "Show agenda items from the configured folder in a dedicated lane on the board.",
+		},
+		agendaFolder: {
+			name: "Agendas folder",
+			desc: "Folder from which agenda items (topics to discuss with people) are read and created.",
+			placeholder: "GTD/Agendas",
+		},
 		swimlanesHeading: "Swimlanes",
 		swimlanesDesc: "Based on GTD, but freely customizable. The tag is used to assign inline checkboxes to a lane.",
 		addLane: "Add lane",
@@ -232,6 +249,11 @@ export const en = {
 			add: "Add task",
 			wipLimitExceeded: "WIP limit exceeded",
 		},
+		agendaLane: {
+			name: "Agendas",
+			add: "Add agenda item",
+			empty: "No open agenda items.",
+		},
 		card: {
 			doneCheckboxTitle: "Mark as done / restore",
 			priorityTitle: "Priority: {priority}",
@@ -242,6 +264,7 @@ export const en = {
 			delegatedToTitle: "Delegated to {name}",
 			staleSomedayText: "⏳ for {days}d",
 			staleSomedayTitle: "Not reviewed for a while - check at the next weekly review.",
+			agendaPersonTitle: "Agenda item for {name}",
 		},
 		contextMenu: {
 			edit: "Edit",

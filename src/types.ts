@@ -1,3 +1,6 @@
+/** Stabiler Lane-Bezeichner fuer die Agendas-Lane; nicht Teil der konfigurierbaren Lanes. */
+export const AGENDA_LANE_ID = "__agenda__";
+
 export interface LaneConfig {
 	/** Stabile ID der Lane, wird in Frontmatter und als Inline-Tag genutzt. */
 	id: string;
@@ -79,6 +82,8 @@ export interface GtdTask {
 	delegatedTo?: string;
 	/** Freies Projekt (GTD-Projektliste), unabhaengig von Lane und Kontext. */
 	project?: string;
+	/** Person, mit der dieser Agendapunkt besprochen werden soll (nur fuer Agenda-Eintraege). */
+	person?: string;
 	filePath: string;
 	/** Nur bei Inline-Aufgaben gesetzt: Zeilennummer (0-basiert) in der Quelldatei. */
 	line?: number;
@@ -131,6 +136,10 @@ export interface GtdBoardSettings {
 	 * in die als isNextActions markierte Lane befoerdern (statt in der Eingang-Lane liegen zu bleiben).
 	 */
 	autoPromoteInboxOnDueDate: boolean;
+	/** Agendas-Lane auf dem Board anzeigen. */
+	agendaEnabled: boolean;
+	/** Ordner (im Vault), aus dem Agenda-Eintraege gelesen werden. */
+	agendaFolder: string;
 }
 
 export const DEFAULT_LANES: LaneConfig[] = [
@@ -160,4 +169,6 @@ export const DEFAULT_SETTINGS: GtdBoardSettings = {
 	delegateFollowUpDays: 5,
 	somedayRefreshDays: 60,
 	autoPromoteInboxOnDueDate: true,
+	agendaEnabled: false,
+	agendaFolder: "GTD/Agendas",
 };

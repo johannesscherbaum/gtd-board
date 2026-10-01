@@ -1,5 +1,5 @@
 import { App, TFile, TFolder, normalizePath } from "obsidian";
-import { GtdBoardSettings, GtdTask, LaneConfig, RecurrenceRule, TaskPriority } from "./types";
+import { AGENDA_LANE_ID, GtdBoardSettings, GtdTask, LaneConfig, RecurrenceRule, TaskPriority } from "./types";
 import {
 	assignSequentialOrder,
 	bounceRecurringInlineLine,
@@ -44,6 +44,10 @@ export class GtdStore {
 		const tasks: GtdTask[] = [];
 		const taskFolder = normalizePath(this.settings.taskFilesFolder);
 		const archiveFolder = this.effectiveArchiveFolder();
+		const agendaEnabled = this.settings.agendaEnabled;
+		const agendaFolder = agendaEnabled && this.settings.agendaFolder
+			? normalizePath(this.settings.agendaFolder)
+			: "";
 
 		for (const file of files) {
 			// Archivierte Aufgaben sind bewusst kein Teil des Boards mehr.
@@ -52,6 +56,12 @@ export class GtdStore {
 			const inTaskFolder = isPathInFolder(file.path, taskFolder);
 			if (inTaskFolder) {
 				const task = await this.readFileTask(file);
+				if (task) tasks.push(task);
+				continue;
+			}
+
+			if (agendaFolder && isPathInFolder(file.path, agendaFolder)) {
+				const task = await this.readFileTask(file, true);
 				if (task) tasks.push(task);
 				continue;
 			}
@@ -80,14 +90,22 @@ export class GtdStore {
 		return normalizePath(configured || joinPath(this.settings.taskFilesFolder, "Archiv"));
 	}
 
-	private async readFileTask(file: TFile): Promise<GtdTask | null> {
+	/**
+	 * Liest eine Markdown-Datei als Aufgabe. Bei Agenda-Dateien (isAgendaFile = true) wird die
+	 * Lane immer auf AGENDA_LANE_ID gesetzt und das `person`-Feld aus dem Frontmatter gelesen;
+	 * auf ein vorhandenes `lane`-Frontmatter-Feld wird dabei verzichtet.
+	 */
+	private async readFileTask(file: TFile, isAgendaFile = false): Promise<GtdTask | null> {
 		const content = await this.app.vault.read(file);
 		const { frontmatter, body } = parseTaskFile(content);
-		if (!frontmatter.lane) return null;
-		const laneExists = this.settings.lanes.some((l) => l.id === frontmatter.lane);
-		// laneId ist immer die "Herkunfts-Lane" (Frontmatter), unabhaengig vom Erledigt-Status -
-		// so weiss das Plugin, wohin die Aufgabe beim Wiederaufklappen aus "Erledigt" zurueckfaellt.
-		const laneId = laneExists ? frontmatter.lane : this.defaultLaneId();
+		if (!isAgendaFile && !frontmatter.lane) return null;
+		let laneId: string;
+		if (isAgendaFile) {
+			laneId = AGENDA_LANE_ID;
+		} else {
+			const laneExists = this.settings.lanes.some((l) => l.id === frontmatter.lane);
+			laneId = laneExists ? frontmatter.lane! : this.defaultLaneId();
+		}
 		const done = frontmatter.done === true || frontmatter.done === "true";
 		const id = fileTaskId(file.path);
 		return {
@@ -105,6 +123,7 @@ export class GtdStore {
 			contexts: Array.isArray(frontmatter.contexts) ? frontmatter.contexts : [],
 			delegatedTo: typeof frontmatter.delegatedTo === "string" ? frontmatter.delegatedTo : undefined,
 			project: typeof frontmatter.project === "string" ? frontmatter.project : undefined,
+			person: typeof frontmatter.person === "string" ? frontmatter.person : undefined,
 			filePath: file.path,
 			order: typeof frontmatter.order === "number" ? frontmatter.order : 0,
 			lastTouched: this.touchedAt(id, file.stat.mtime),
@@ -209,6 +228,48 @@ export class GtdStore {
 		return this.app.vault.create(path, content);
 	}
 
+	/** Legt einen neuen Agenda-Eintrag im konfigurierten Agendas-Ordner an. */
+	async createAgendaFile(options: {
+		title: string;
+		person?: string;
+		description?: string;
+		priority?: TaskPriority;
+		contexts?: string[];
+		tags?: string[];
+		recurrence?: RecurrenceRule;
+		project?: string;
+		due?: string;
+		reminderAt?: string;
+	}): Promise<TFile> {
+		const { title, person, description, priority, contexts, tags, recurrence, project, due, reminderAt } = options;
+		await this.ensureFolder(this.settings.agendaFolder);
+		const baseName = sanitizeFileName(title);
+		let fileName = `${baseName}.md`;
+		let counter = 2;
+		while (this.app.vault.getAbstractFileByPath(joinPath(this.settings.agendaFolder, fileName))) {
+			fileName = `${baseName} ${counter}.md`;
+			counter++;
+		}
+		const path = joinPath(this.settings.agendaFolder, fileName);
+		const content = buildTaskFileContent(
+			{
+				lane: AGENDA_LANE_ID,
+				person: person?.trim() || undefined,
+				due: due?.trim() || undefined,
+				reminder: reminderAt?.trim() || undefined,
+				priority: priority && priority !== "medium" ? priority : undefined,
+				contexts: contexts && contexts.length > 0 ? contexts : undefined,
+				tags: tags && tags.length > 0 ? tags : undefined,
+				recurrence,
+				project: project?.trim() || undefined,
+				created: nowISO(),
+				order: Date.now(),
+			},
+			description ?? ""
+		);
+		return this.app.vault.create(path, content);
+	}
+
 	/** Aktualisiert Titel, Beschreibung, Faelligkeit, Erinnerung, Prioritaet, Wiederholung, Kontexte und Tags einer Datei-Aufgabe. */
 	async updateTaskFile(
 		task: GtdTask,
@@ -223,6 +284,7 @@ export class GtdStore {
 			tags?: string[];
 			delegatedTo?: string;
 			project?: string;
+			person?: string;
 		}
 	): Promise<void> {
 		const file = this.app.vault.getAbstractFileByPath(task.filePath);
@@ -244,6 +306,7 @@ export class GtdStore {
 		frontmatter.tags = fields.tags && fields.tags.length > 0 ? fields.tags : undefined;
 		frontmatter.delegatedTo = fields.delegatedTo?.trim() ? fields.delegatedTo.trim() : undefined;
 		frontmatter.project = fields.project?.trim() ? fields.project.trim() : undefined;
+		frontmatter.person = fields.person?.trim() ? fields.person.trim() : undefined;
 
 		const newBody = fields.description !== undefined ? fields.description : body;
 		const newContent = buildTaskFileContent(frontmatter, newBody);
