@@ -165,18 +165,21 @@ export class TaskModal extends Modal {
 			const checkboxEls = Array.from(preview.querySelectorAll<HTMLInputElement>("input[type=checkbox]"));
 			checkboxEls.forEach((cb, idx) => {
 				const clone = cb.cloneNode(true) as HTMLInputElement;
+				clone.disabled = false;
 				cb.replaceWith(clone);
 				clone.addEventListener("change", () => {
+					const checked = clone.checked;
 					let count = 0;
 					this.description = this.description.split(/\r?\n/).map((line) => {
 						if (/^\s*[-*+]\s*\[[ xX]\]/.test(line)) {
 							if (count++ === idx) {
-								return line.replace(/\[[ xX]\]/, clone.checked ? "[x]" : "[ ]");
+								return line.replace(/\[[ xX]\]/, checked ? "[x]" : "[ ]");
 							}
 						}
 						return line;
 					}).join("\n");
 					textarea.value = this.description;
+					void renderPreview();
 					if (this.options.mode === "edit" && this.options.task?.source === "file") {
 						void this.plugin.store.patchFileTaskBody(this.options.task, this.description)
 							.then(() => void this.plugin.refreshBoardViews());
