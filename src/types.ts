@@ -48,7 +48,7 @@ export type TaskSource = "file" | "inline";
 export type TaskPriority = "high" | "medium" | "low";
 
 /** Sortierung der Karten innerhalb einer Lane. */
-export type SortMode = "manual" | "priority" | "due" | "title";
+export type SortMode = "manual" | "priority" | "due" | "title" | "project";
 
 /**
  * Wiederholungsregel einer Aufgabe. Wird eine Aufgabe mit Regel in eine Erledigt-Lane
@@ -148,6 +148,8 @@ export interface GtdBoardSettings {
 	agendaFolder: string;
 	/** Namen der Projekte (oder "__no_project__"), die in der Projekteansicht eingeklappt sind. */
 	collapsedProjects: string[];
+	/** Namen der Kontexte (oder "__no_context__"), die in der Kontexteansicht eingeklappt sind. */
+	collapsedContexts: string[];
 }
 
 export const DEFAULT_LANES: LaneConfig[] = [
@@ -181,4 +183,5 @@ export const DEFAULT_SETTINGS: GtdBoardSettings = {
 	agendaEnabled: false,
 	agendaFolder: "GTD/Agendas",
 	collapsedProjects: [],
+	collapsedContexts: [],
 };

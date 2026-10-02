@@ -189,6 +189,12 @@ const RELATIVE_DATE_OFFSETS: Record<string, number> = {
 	uebermorgen: 2,
 };
 const RELATIVE_DATE_RE = /📅\s*(heute|morgen|übermorgen|uebermorgen)/iu;
+const WEEKDAY_MAP: Record<string, number> = {
+	montag: 1, dienstag: 2, mittwoch: 3, donnerstag: 4,
+	freitag: 5, samstag: 6, sonntag: 0,
+};
+const WEEKDAY_EXPR_RE =
+	/📅\s*((?:n[äa]chste(?:n|r|s)?|naechste(?:n|r|s)?)\s+(?:montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)|(?:n[äa]chste|naechste)\s+woche|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)/iu;
 
 /** Deutsche Anzeige-Woerter je Wiederholungsregel, u. a. fuer die Inline-Syntax ("🔁 woechentlich"). */
 export const RECURRENCE_WORDS: Record<RecurrenceRule, string> = {
@@ -212,6 +218,26 @@ function wordToRecurrenceRule(word: string): RecurrenceRule | undefined {
 	if (w.startsWith("mon")) return "monthly";
 	if (w.startsWith("jä") || w.startsWith("jae")) return "yearly";
 	return undefined;
+}
+
+function nextWeekday(targetDay: number, now: Date, strictly: boolean): Date {
+	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+	const currentDay = today.getDay();
+	let diff = ((targetDay - currentDay) + 7) % 7;
+	if (diff === 0 && strictly) diff = 7;
+	return addDays(today, diff);
+}
+
+function resolveWeekdayExpr(expr: string, now: Date): Date {
+	const trimmed = expr.trim().toLowerCase();
+	if (trimmed === "nächste woche" || trimmed === "naechste woche") {
+		return addDays(startOfWeek(now), 7);
+	}
+	const strictly = /^(?:n[äa]chste|naechste)/i.test(trimmed);
+	const dayName = trimmed.split(/\s+/).at(-1)!;
+	const targetDay = WEEKDAY_MAP[dayName];
+	if (targetDay === undefined) return addDays(now, 0);
+	return nextWeekday(targetDay, now, strictly);
 }
 
 /**
@@ -352,10 +378,13 @@ export function isCheckboxLine(line: string): boolean {
  * "uebermorgen" verstanden und vor dem eigentlichen Parsen in ein konkretes Datum aufgeloest.
  */
 export function parseQuickCapture(input: string, lanes: LaneConfig[], now: Date = new Date()): ParsedInlineTask | null {
-	const withResolvedDate = input.replace(RELATIVE_DATE_RE, (_match, word: string) => {
+	const withResolvedRelative = input.replace(RELATIVE_DATE_RE, (_match, word: string) => {
 		const offset = RELATIVE_DATE_OFFSETS[word.toLowerCase()];
 		const target = offset !== undefined ? addDays(now, offset) : now;
 		return `📅 ${formatLocalDate(target)}`;
+	});
+	const withResolvedDate = withResolvedRelative.replace(WEEKDAY_EXPR_RE, (_match, expr: string) => {
+		return `📅 ${formatLocalDate(resolveWeekdayExpr(expr, now))}`;
 	});
 	return parseInlineLine(`- [ ] ${withResolvedDate}`, lanes);
 }

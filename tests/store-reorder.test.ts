@@ -1,6 +1,7 @@
 import { TFile } from "obsidian";
 import { GtdStore } from "../src/store";
 import { DEFAULT_LANES, DEFAULT_SETTINGS, GtdBoardSettings } from "../src/types";
+import { buildTaskFileContent, parseTaskFile } from "../src/util";
 
 /**
  * Minimaler In-Memory-Vault, der genau die Vault-Methoden bereitstellt, die GtdStore nutzt:
@@ -49,7 +50,19 @@ function makeStore(settings: GtdBoardSettings): { store: GtdStore; vault: FakeVa
 	const vault = new FakeVault();
 	const fakeApp: any = {
 		vault,
-		fileManager: { renameFile: async () => {} },
+		fileManager: {
+			renameFile: async () => {},
+			processFrontMatter: async (
+				file: TFile,
+				fn: (fm: Record<string, unknown>) => void
+			): Promise<void> => {
+				const entry = vault.files.get(file.path);
+				if (!entry) throw new Error(`processFrontMatter: not found: ${file.path}`);
+				const { frontmatter, body } = parseTaskFile(entry.content);
+				fn(frontmatter as Record<string, unknown>);
+				entry.content = buildTaskFileContent(frontmatter, body);
+			},
+		},
 	};
 	const store = new GtdStore(fakeApp, () => settings);
 	return { store, vault };

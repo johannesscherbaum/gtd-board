@@ -210,11 +210,12 @@ export const en = {
 			all: "All projects",
 		},
 		viewMode: {
-			title: "View: Kanban board, agenda list, week calendar, or projects view",
+			title: "View: Kanban board, agenda list, week calendar, projects, or contexts",
 			board: "Kanban",
 			agenda: "Agenda",
 			week: "Week",
 			projects: "Projects",
+			contexts: "Contexts",
 		},
 		sort: {
 			title: "Sort order of cards within a lane",
@@ -222,6 +223,7 @@ export const en = {
 			priority: "Priority",
 			due: "Due date",
 			taskTitle: "Title",
+			project: "Project",
 		},
 		selection: {
 			button: "Multi-select",
@@ -245,6 +247,11 @@ export const en = {
 		projects: {
 			empty: "No open tasks.",
 			noProject: "No project",
+			back: "Back",
+		},
+		contexts: {
+			empty: "No open tasks.",
+			noContext: "No context",
 		},
 		week: {
 			prevWeek: "Previous week",
@@ -275,6 +282,7 @@ export const en = {
 			staleSomedayText: "⏳ for {days}d",
 			staleSomedayTitle: "Not reviewed for a while - check at the next weekly review.",
 			agendaPersonTitle: "Agenda item for {name}",
+			processTitle: "Process (GTD: clarify & assign to lane)",
 		},
 		contextMenu: {
 			edit: "Edit",

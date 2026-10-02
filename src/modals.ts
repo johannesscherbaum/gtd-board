@@ -32,6 +32,8 @@ export interface TaskModalOptions {
 	showPersonField?: boolean;
 	/** Ueberschreibt den Standard-Fenstertitel des Dialogs. */
 	titleOverride?: string;
+	/** Vorausgefuelltes Projekt (z. B. beim Anlegen aus der Projekteansicht). */
+	initialProject?: string;
 	onSubmit: (result: TaskModalResult) => Promise<void>;
 }
 
@@ -68,7 +70,7 @@ export class TaskModal extends Modal {
 		this.contexts = task?.contexts.join(", ") ?? "";
 		this.tags = task?.tags.join(", ") ?? "";
 		this.delegatedTo = task?.delegatedTo ?? "";
-		this.project = task?.project ?? "";
+		this.project = task?.project ?? options.initialProject ?? "";
 		this.person = task?.person ?? "";
 	}
 

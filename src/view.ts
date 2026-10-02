@@ -24,7 +24,7 @@ import { TaskModal, confirmDialog } from "./modals";
 
 export const GTD_BOARD_VIEW_TYPE = "gtd-board-view";
 
-type ViewMode = "board" | "agenda" | "week" | "projects";
+type ViewMode = "board" | "agenda" | "week" | "projects" | "contexts";
 
 function sortLabel(mode: SortMode): string {
 	switch (mode) {
@@ -34,6 +34,8 @@ function sortLabel(mode: SortMode): string {
 			return t("view.sort.due");
 		case "title":
 			return t("view.sort.taskTitle");
+		case "project":
+			return t("view.sort.project");
 		default:
 			return t("view.sort.manual");
 	}
@@ -60,6 +62,8 @@ export class GtdBoardView extends ItemView {
 	private projectSelectEl!: HTMLSelectElement;
 	private sortSelectEl!: HTMLSelectElement;
 	private bulkBarEl!: HTMLElement;
+	/** undefined = nicht in Detailansicht; null = "Kein Projekt"-Gruppe; string = Projektname. */
+	private detailProject: string | null | undefined = undefined;
 
 	constructor(leaf: WorkspaceLeaf, private plugin: GtdBoardPlugin) {
 		super(leaf);
@@ -237,12 +241,19 @@ export class GtdBoardView extends ItemView {
 		viewModeSelect.createEl("option", { text: t("view.viewMode.agenda"), value: "agenda" });
 		viewModeSelect.createEl("option", { text: t("view.viewMode.week"), value: "week" });
 		viewModeSelect.createEl("option", { text: t("view.viewMode.projects"), value: "projects" });
+		viewModeSelect.createEl("option", { text: t("view.viewMode.contexts"), value: "contexts" });
 		viewModeSelect.value = this.viewMode;
 		viewModeSelect.addEventListener("change", () => {
+			const prev = this.viewMode;
 			this.viewMode = viewModeSelect.value as ViewMode;
-			// Sortier-Dropdown: sinnvoll im Kanban und in der Projekteansicht; in Agenda und
-			// Woche ist die Sortierung fest (nach Faelligkeit bzw. Kalendertag).
-			this.sortSelectEl.toggle(this.viewMode === "board" || this.viewMode === "projects");
+			if (prev === "projects" && this.viewMode !== "projects") {
+				this.detailProject = undefined;
+			}
+			// Sortier-Dropdown: sinnvoll im Kanban, in der Projekteansicht und in der Kontexteansicht;
+			// in Agenda und Woche ist die Sortierung fest (nach Faelligkeit bzw. Kalendertag).
+			this.sortSelectEl.toggle(
+				this.viewMode === "board" || this.viewMode === "projects" || this.viewMode === "contexts"
+			);
 			this.renderBoard();
 		});
 
@@ -250,7 +261,7 @@ export class GtdBoardView extends ItemView {
 		this.createToolbarIcon(sortGroup, "arrow-up-down");
 		this.sortSelectEl = sortGroup.createEl("select", { cls: "gtd-board-sort" });
 		this.sortSelectEl.setAttribute("title", t("view.sort.title"));
-		(["manual", "priority", "due", "title"] as SortMode[]).forEach((mode) => {
+		(["manual", "priority", "due", "title", "project"] as SortMode[]).forEach((mode) => {
 			const opt = this.sortSelectEl.createEl("option", { text: sortLabel(mode), value: mode });
 			if (mode === this.plugin.settings.sortMode) opt.selected = true;
 		});
@@ -304,6 +315,7 @@ export class GtdBoardView extends ItemView {
 		this.boardEl.removeClass("gtd-board-agenda-mode");
 		this.boardEl.removeClass("gtd-board-week-mode");
 		this.boardEl.removeClass("gtd-board-projects-mode");
+		this.boardEl.removeClass("gtd-board-contexts-mode");
 		if (this.viewMode === "agenda") {
 			this.boardEl.addClass("gtd-board-agenda-mode");
 			this.boardEl.appendChild(this.renderAgenda());
@@ -313,6 +325,9 @@ export class GtdBoardView extends ItemView {
 		} else if (this.viewMode === "projects") {
 			this.boardEl.addClass("gtd-board-projects-mode");
 			this.boardEl.appendChild(this.renderProjects());
+		} else if (this.viewMode === "contexts") {
+			this.boardEl.addClass("gtd-board-contexts-mode");
+			this.boardEl.appendChild(this.renderContexts());
 		} else {
 			if (this.plugin.settings.agendaEnabled) {
 				this.boardEl.appendChild(this.renderAgendaLane());
@@ -430,6 +445,10 @@ export class GtdBoardView extends ItemView {
 	 * Jede Gruppe ist ein- und ausklappbar; Aufgaben ohne Projekt landen unter "Kein Projekt".
 	 */
 	private renderProjects(): HTMLElement {
+		if (this.detailProject !== undefined) {
+			return this.renderProjectDetail(this.detailProject);
+		}
+
 		const container = createDiv({ cls: "gtd-projects" });
 
 		const openTasks = this.tasks.filter((t) => !t.done && t.laneId !== AGENDA_LANE_ID);
@@ -446,6 +465,13 @@ export class GtdBoardView extends ItemView {
 			}
 		}
 
+		// Gesamtzahl (offen + erledigt) je Projekt als Fortschrittsanzeige im Header.
+		const totalByProject = new Map<string, number>();
+		for (const task of this.tasks.filter((t) => t.laneId !== AGENDA_LANE_ID)) {
+			const key = task.project ?? "__no_project__";
+			totalByProject.set(key, (totalByProject.get(key) ?? 0) + 1);
+		}
+
 		const projectNames = Array.from(byProject.keys()).sort((a, b) => a.localeCompare(b, intlLocale()));
 
 		if (projectNames.length === 0 && noProject.length === 0) {
@@ -454,16 +480,20 @@ export class GtdBoardView extends ItemView {
 		}
 
 		for (const name of projectNames) {
-			container.appendChild(this.renderProjectSection(name, this.sortTasks(byProject.get(name)!)));
+			container.appendChild(
+				this.renderProjectSection(name, this.sortTasks(byProject.get(name)!), totalByProject.get(name))
+			);
 		}
 		if (noProject.length > 0) {
-			container.appendChild(this.renderProjectSection(null, this.sortTasks(noProject)));
+			container.appendChild(
+				this.renderProjectSection(null, this.sortTasks(noProject), totalByProject.get("__no_project__"))
+			);
 		}
 
 		return container;
 	}
 
-	private renderProjectSection(project: string | null, tasks: GtdTask[]): HTMLElement {
+	private renderProjectSection(project: string | null, tasks: GtdTask[], totalCount?: number): HTMLElement {
 		const sectionKey = project ?? "__no_project__";
 		const collapsed = this.plugin.settings.collapsedProjects.includes(sectionKey);
 
@@ -480,11 +510,34 @@ export class GtdBoardView extends ItemView {
 			void this.toggleProjectCollapsed(sectionKey);
 		});
 
-		header.createSpan({
+		const titleEl = header.createSpan({
 			cls: "gtd-project-section-title",
 			text: project ? `+${project}` : t("view.projects.noProject"),
 		});
-		header.createSpan({ cls: "gtd-project-section-count", text: String(tasks.length) });
+		if (project !== null) {
+			titleEl.addClass("gtd-project-section-title-clickable");
+			titleEl.addEventListener("click", (evt) => {
+				evt.stopPropagation();
+				this.detailProject = project;
+				this.renderBoard();
+			});
+		}
+
+		const openCount = tasks.length;
+		const countText =
+			totalCount !== undefined && totalCount > openCount
+				? `${openCount}/${totalCount}`
+				: String(openCount);
+		header.createSpan({ cls: "gtd-project-section-count", text: countText });
+
+		if (!collapsed) {
+			const addBtn = header.createEl("button", { cls: "gtd-project-section-add", text: "+" });
+			addBtn.setAttribute("aria-label", t("view.lane.add"));
+			addBtn.addEventListener("click", (evt) => {
+				evt.stopPropagation();
+				this.openCreateModalForProject(project);
+			});
+		}
 
 		if (!collapsed) {
 			const body = sectionEl.createDiv({ cls: "gtd-project-section-body" });
@@ -509,6 +562,157 @@ export class GtdBoardView extends ItemView {
 		this.renderBoard();
 	}
 
+	/** Oeffnet einen Erstellen-Dialog mit vorausgefuelltem Projekt (fuer "+" in der Projekteansicht). */
+	private openCreateModalForProject(project: string | null): void {
+		const defaultLaneId = this.plugin.store.defaultLaneId();
+		const modal = new TaskModal(this.app, this.plugin, {
+			mode: "create",
+			laneId: defaultLaneId,
+			initialProject: project ?? undefined,
+			onSubmit: async (result) => {
+				const targetLaneId =
+					shouldPromoteFromInbox(
+						defaultLaneId,
+						result.due,
+						this.plugin.settings.lanes,
+						this.plugin.settings.autoPromoteInboxOnDueDate
+					) ?? defaultLaneId;
+				await this.plugin.store.createTaskFile({
+					laneId: targetLaneId,
+					title: result.title,
+					description: result.description,
+					priority: result.priority,
+					contexts: result.contexts,
+					tags: result.tags,
+					recurrence: result.recurrence,
+					delegatedTo: result.delegatedTo,
+					project: result.project,
+					due: result.due,
+					reminderAt: result.reminderAt,
+				});
+				await this.refresh();
+			},
+		});
+		modal.open();
+	}
+
+	/** Detailansicht eines einzelnen Projekts: alle Aufgaben (offen + erledigt) mit Zurueck-Button. */
+	private renderProjectDetail(project: string | null): HTMLElement {
+		const container = createDiv({ cls: "gtd-project-detail" });
+
+		const header = container.createDiv({ cls: "gtd-project-detail-header" });
+		const backBtn = header.createEl("button", { cls: "gtd-project-detail-back" });
+		setIcon(backBtn, "arrow-left");
+		backBtn.createSpan({ text: t("view.projects.back") });
+		backBtn.addEventListener("click", () => {
+			this.detailProject = undefined;
+			this.renderBoard();
+		});
+		header.createSpan({
+			cls: "gtd-project-detail-title",
+			text: project ? `+${project}` : t("view.projects.noProject"),
+		});
+
+		const tasks = this.tasks
+			.filter((t) => t.laneId !== AGENDA_LANE_ID)
+			.filter((t) => (project ? t.project === project : !t.project))
+			.filter((t) => this.matchesFilter(t));
+		const sorted = this.sortTasks(tasks);
+
+		if (sorted.length === 0) {
+			container.createDiv({ cls: "gtd-project-detail-empty", text: t("view.projects.empty") });
+		} else {
+			const body = container.createDiv({ cls: "gtd-project-detail-body" });
+			for (const task of sorted) {
+				body.appendChild(this.renderCard(task, { showHomeLaneBadge: true }));
+			}
+		}
+
+		return container;
+	}
+
+	/** Kontexteansicht: alle offenen Aufgaben (ohne Agenda) gruppiert nach @Kontext. */
+	private renderContexts(): HTMLElement {
+		const container = createDiv({ cls: "gtd-contexts" });
+
+		const openTasks = this.tasks.filter((t) => !t.done && t.laneId !== AGENDA_LANE_ID);
+		const filtered = openTasks.filter((t) => this.matchesFilter(t));
+
+		const byContext = new Map<string, GtdTask[]>();
+		const noContext: GtdTask[] = [];
+		for (const task of filtered) {
+			if (task.contexts.length > 0) {
+				for (const ctx of task.contexts) {
+					if (!byContext.has(ctx)) byContext.set(ctx, []);
+					byContext.get(ctx)!.push(task);
+				}
+			} else {
+				noContext.push(task);
+			}
+		}
+
+		const contextNames = Array.from(byContext.keys()).sort((a, b) => a.localeCompare(b, intlLocale()));
+
+		if (contextNames.length === 0 && noContext.length === 0) {
+			container.createDiv({ cls: "gtd-contexts-empty", text: t("view.contexts.empty") });
+			return container;
+		}
+
+		for (const name of contextNames) {
+			container.appendChild(this.renderContextSection(name, this.sortTasks(byContext.get(name)!)));
+		}
+		if (noContext.length > 0) {
+			container.appendChild(this.renderContextSection(null, this.sortTasks(noContext)));
+		}
+
+		return container;
+	}
+
+	private renderContextSection(context: string | null, tasks: GtdTask[]): HTMLElement {
+		const sectionKey = context ?? "__no_context__";
+		const collapsed = this.plugin.settings.collapsedContexts.includes(sectionKey);
+
+		const sectionEl = createDiv({ cls: "gtd-context-section" });
+		if (collapsed) sectionEl.addClass("gtd-context-section-collapsed");
+
+		const header = sectionEl.createDiv({ cls: "gtd-context-section-header" });
+
+		const toggleBtn = header.createEl("button", { cls: "gtd-context-section-toggle" });
+		toggleBtn.setText(collapsed ? "▸" : "▾");
+		toggleBtn.setAttribute("aria-label", collapsed ? t("view.lane.expand") : t("view.lane.collapse"));
+		toggleBtn.addEventListener("click", (evt) => {
+			evt.stopPropagation();
+			void this.toggleContextCollapsed(sectionKey);
+		});
+
+		header.createSpan({
+			cls: "gtd-context-section-title",
+			text: context ? `@${context}` : t("view.contexts.noContext"),
+		});
+		header.createSpan({ cls: "gtd-context-section-count", text: String(tasks.length) });
+
+		if (!collapsed) {
+			const body = sectionEl.createDiv({ cls: "gtd-context-section-body" });
+			for (const task of tasks) {
+				body.appendChild(this.renderCard(task, { showHomeLaneBadge: true }));
+			}
+		}
+
+		return sectionEl;
+	}
+
+	private async toggleContextCollapsed(contextKey: string): Promise<void> {
+		const collapsed = new Set(this.plugin.settings.collapsedContexts);
+		if (collapsed.has(contextKey)) {
+			collapsed.delete(contextKey);
+		} else {
+			collapsed.add(contextKey);
+		}
+		this.plugin.settings.collapsedContexts = Array.from(collapsed);
+		await this.plugin.saveSettings();
+		this.renderBoard();
+	}
+
 	private matchesFilter(task: GtdTask): boolean {
 		if (this.contextFilter && !task.contexts.includes(this.contextFilter)) return false;
 		if (this.projectFilter && task.project !== this.projectFilter) return false;
@@ -526,6 +730,14 @@ export class GtdBoardView extends ItemView {
 			copy.sort((a, b) => this.compareByDueAscending(a, b));
 		} else if (mode === "title") {
 			copy.sort((a, b) => a.title.localeCompare(b.title, intlLocale()));
+		} else if (mode === "project") {
+			// Aufgaben ohne Projekt sortieren ans Ende; innerhalb desselben Projekts nach order.
+			copy.sort((a, b) => {
+				const ap = a.project ?? "￿";
+				const bp = b.project ?? "￿";
+				return ap.localeCompare(bp, intlLocale()) || a.order - b.order;
+			});
+			return copy;
 		} else {
 			copy.sort((a, b) => a.order - b.order);
 		}
@@ -812,6 +1024,19 @@ export class GtdBoardView extends ItemView {
 		titleRow.createSpan({ cls: "gtd-card-title", text: task.title });
 		if (task.source === "inline") {
 			titleRow.createSpan({ cls: "gtd-card-badge", text: t("view.card.inlineBadge") });
+		}
+
+		const inboxLaneId = this.plugin.settings.lanes.find((l) => l.isInbox)?.id;
+		if (inboxLaneId && task.laneId === inboxLaneId && !task.done) {
+			const processBtn = titleRow.createEl("button", {
+				cls: "gtd-card-process-btn",
+				attr: { title: t("view.card.processTitle"), "aria-label": t("view.card.processTitle") },
+			});
+			setIcon(processBtn, "arrow-right-circle");
+			processBtn.addEventListener("click", (evt) => {
+				evt.stopPropagation();
+				this.openEditModal(task);
+			});
 		}
 
 		if (task.due) {

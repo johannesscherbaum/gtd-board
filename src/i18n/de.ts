@@ -211,11 +211,12 @@ export const de = {
 			all: "Alle Projekte",
 		},
 		viewMode: {
-			title: "Ansicht: Kanban-Board, Agenda-Liste, Wochenkalender oder Projekteansicht",
+			title: "Ansicht: Kanban-Board, Agenda-Liste, Wochenkalender, Projekte oder Kontexte",
 			board: "Kanban",
 			agenda: "Agenda",
 			week: "Woche",
 			projects: "Projekte",
+			contexts: "Kontexte",
 		},
 		sort: {
 			title: "Sortierung der Karten innerhalb einer Lane",
@@ -223,6 +224,7 @@ export const de = {
 			priority: "Priorität",
 			due: "Fälligkeit",
 			taskTitle: "Titel",
+			project: "Projekt",
 		},
 		selection: {
 			button: "Mehrfachauswahl",
@@ -246,6 +248,11 @@ export const de = {
 		projects: {
 			empty: "Keine offenen Aufgaben.",
 			noProject: "Kein Projekt",
+			back: "Zurück",
+		},
+		contexts: {
+			empty: "Keine offenen Aufgaben.",
+			noContext: "Kein Kontext",
 		},
 		week: {
 			prevWeek: "Vorherige Woche",
@@ -276,6 +283,7 @@ export const de = {
 			staleSomedayText: "⏳ seit {days}d",
 			staleSomedayTitle: "Seit laengerem nicht mehr durchgesehen - beim naechsten Wochenrueckblick pruefen.",
 			agendaPersonTitle: "Agendapunkt fuer {name}",
+			processTitle: "Verarbeiten (GTD: klaeren und einer Lane zuordnen)",
 		},
 		contextMenu: {
 			edit: "Bearbeiten",

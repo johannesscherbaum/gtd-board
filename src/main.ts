@@ -153,7 +153,7 @@ export default class GtdBoardPlugin extends Plugin {
 		if (!this.settings.snoozedUntil || typeof this.settings.snoozedUntil !== "object") {
 			this.settings.snoozedUntil = {};
 		}
-		const validSortModes = ["manual", "priority", "due", "title"];
+		const validSortModes = ["manual", "priority", "due", "title", "project"];
 		if (!validSortModes.includes(this.settings.sortMode)) {
 			this.settings.sortMode = DEFAULT_SETTINGS.sortMode;
 		}
@@ -192,6 +192,9 @@ export default class GtdBoardPlugin extends Plugin {
 		}
 		if (!Array.isArray(this.settings.collapsedProjects)) {
 			this.settings.collapsedProjects = [];
+		}
+		if (!Array.isArray(this.settings.collapsedContexts)) {
+			this.settings.collapsedContexts = [];
 		}
 	}
 

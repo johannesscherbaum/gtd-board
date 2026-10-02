@@ -342,6 +342,176 @@
 	gap: 6px;
 }
 
+.gtd-project-section-title-clickable {
+	cursor: pointer;
+}
+
+.gtd-project-section-title-clickable:hover {
+	text-decoration: underline;
+}
+
+.gtd-project-section-add {
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	color: var(--text-muted);
+	font-size: 1.1em;
+	line-height: 1;
+	padding: 0 4px;
+	margin-left: auto;
+}
+
+.gtd-project-section-add:hover {
+	color: var(--text-normal);
+}
+
+/* Projekt-Detailansicht */
+.gtd-project-detail {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: 100%;
+	max-width: 640px;
+	margin: 0 auto;
+}
+
+.gtd-project-detail-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 0 8px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.gtd-project-detail-back {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	color: var(--text-muted);
+	font-size: 0.85em;
+	padding: 2px 6px;
+	border-radius: 4px;
+}
+
+.gtd-project-detail-back:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+
+.gtd-project-detail-title {
+	font-weight: 600;
+	color: var(--text-accent);
+}
+
+.gtd-project-detail-body {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.gtd-project-detail-empty {
+	color: var(--text-muted);
+	text-align: center;
+	padding: 24px;
+}
+
+/* Kontexteansicht */
+.gtd-board-contexts-mode .gtd-board {
+	justify-content: flex-start;
+}
+
+.gtd-contexts {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: 100%;
+	max-width: 640px;
+	margin: 0 auto;
+}
+
+.gtd-contexts-empty {
+	color: var(--text-muted);
+	text-align: center;
+	padding: 24px;
+}
+
+.gtd-context-section {
+	background: var(--background-secondary);
+	border-radius: 8px;
+	overflow: hidden;
+}
+
+.gtd-context-section-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 10px;
+	font-weight: 600;
+	cursor: default;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.gtd-context-section-collapsed .gtd-context-section-header {
+	border-bottom: none;
+}
+
+.gtd-context-section-toggle {
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	color: var(--text-muted);
+	padding: 0 2px;
+	font-size: 0.75em;
+	line-height: 1;
+}
+
+.gtd-context-section-toggle:hover {
+	color: var(--text-normal);
+}
+
+.gtd-context-section-title {
+	flex: 1;
+	color: var(--text-accent);
+	font-size: 0.9em;
+}
+
+.gtd-context-section-count {
+	font-size: 0.8em;
+	color: var(--text-muted);
+	background: var(--background-modifier-hover);
+	border-radius: 10px;
+	padding: 1px 6px;
+}
+
+.gtd-context-section-body {
+	padding: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+/* Verarbeiten-Button auf Eingang-Karten */
+.gtd-card-process-btn {
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	color: var(--text-muted);
+	padding: 0 2px;
+	margin-left: auto;
+	display: flex;
+	align-items: center;
+	opacity: 0.6;
+	flex-shrink: 0;
+}
+
+.gtd-card-process-btn:hover {
+	color: var(--text-accent);
+	opacity: 1;
+}
+
 /* Lanes wachsen/schrumpfen dynamisch mit dem verfuegbaren Platz: bei wenigen offenen Lanes
    teilen sie sich die volle Breite (bis max-width), bei vielen schrumpfen sie bis min-width
    und das Board scrollt horizontal (siehe .gtd-board { overflow-x: auto }). Eingeklappte

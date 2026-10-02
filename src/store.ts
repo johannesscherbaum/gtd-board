@@ -346,28 +346,23 @@ export class GtdStore {
 	async moveFileTask(task: GtdTask, newLaneId: string): Promise<void> {
 		const file = this.app.vault.getAbstractFileByPath(task.filePath);
 		if (!(file instanceof TFile)) return;
-		const content = await this.app.vault.read(file);
-		const { frontmatter, body } = parseTaskFile(content);
 		const newLane = this.settings.lanes.find((l) => l.id === newLaneId);
-		const recurrence = toRecurrenceRule(frontmatter.recurrence);
-		if (newLane?.isDone && recurrence && frontmatter.due) {
-			// Wiederkehrende Aufgabe: statt abzuschliessen, naechsten Termin setzen und
-			// in ihrer Herkunfts-Lane offen lassen ("beim Erledigen neu erzeugen").
-			frontmatter.due = nextOccurrence(frontmatter.due, recurrence) ?? frontmatter.due;
-			frontmatter.done = false;
-			frontmatter.doneAt = undefined;
-		} else if (newLane?.isDone) {
-			frontmatter.done = true;
-			// Zeitpunkt der Erledigung merken, damit die automatische Archivierung weiss,
-			// wie lange eine Aufgabe schon erledigt ist.
-			frontmatter.doneAt = nowISO();
-			if (!frontmatter.lane) frontmatter.lane = task.laneId;
-		} else {
-			frontmatter.lane = newLaneId;
-			frontmatter.done = false;
-			frontmatter.doneAt = undefined;
-		}
-		await this.app.vault.modify(file, buildTaskFileContent(frontmatter, body));
+		await this.app.fileManager.processFrontMatter(file, (fm) => {
+			const recurrence = toRecurrenceRule(fm.recurrence as string | undefined);
+			if (newLane?.isDone && recurrence && fm.due) {
+				fm.due = nextOccurrence(fm.due as string, recurrence) ?? fm.due;
+				fm.done = false;
+				delete fm.doneAt;
+			} else if (newLane?.isDone) {
+				fm.done = true;
+				fm.doneAt = nowISO();
+				if (!fm.lane) fm.lane = task.laneId;
+			} else {
+				fm.lane = newLaneId;
+				fm.done = false;
+				delete fm.doneAt;
+			}
+		});
 	}
 
 	/**
@@ -384,35 +379,30 @@ export class GtdStore {
 		const orderMap = assignSequentialOrder(orderedTaskIdsInLane);
 		const targetLane = this.settings.lanes.find((l) => l.id === targetLaneId);
 		for (const id of orderedTaskIdsInLane) {
-			if (!id.startsWith("file::")) continue; // Inline-Aufgabe: kein persistierbarer order-Wert.
+			if (!id.startsWith("file::")) continue;
 			const filePath = id.slice("file::".length);
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (!(file instanceof TFile)) continue;
-			const content = await this.app.vault.read(file);
-			const { frontmatter, body } = parseTaskFile(content);
-			frontmatter.order = orderMap[id];
-			if (id === task.id && frontmatter.lane !== targetLaneId) {
-				// Gleiche Sonderbehandlung wie bei moveFileTask: Drop direkt auf eine Karte
-				// in einer "Erledigt"-Lane muss die Wiederholungs-Logik genauso auslösen wie
-				// ein Drop auf den leeren Lane-Hintergrund.
-				const recurrence = toRecurrenceRule(frontmatter.recurrence);
-				if (targetLane?.isDone && recurrence && frontmatter.due) {
-					frontmatter.due = nextOccurrence(frontmatter.due, recurrence) ?? frontmatter.due;
-					frontmatter.done = false;
-					frontmatter.doneAt = undefined;
-					// Bleibt in ihrer Herkunfts-Lane offen statt in "Erledigt" zu landen.
-					frontmatter.lane = task.laneId;
-				} else if (targetLane?.isDone) {
-					frontmatter.done = true;
-					frontmatter.doneAt = nowISO();
-					if (!frontmatter.lane) frontmatter.lane = task.laneId;
-				} else {
-					frontmatter.lane = targetLaneId;
-					frontmatter.done = false;
-					frontmatter.doneAt = undefined;
+			await this.app.fileManager.processFrontMatter(file, (fm) => {
+				fm.order = orderMap[id];
+				if (id === task.id && fm.lane !== targetLaneId) {
+					const recurrence = toRecurrenceRule(fm.recurrence as string | undefined);
+					if (targetLane?.isDone && recurrence && fm.due) {
+						fm.due = nextOccurrence(fm.due as string, recurrence) ?? fm.due;
+						fm.done = false;
+						delete fm.doneAt;
+						fm.lane = task.laneId;
+					} else if (targetLane?.isDone) {
+						fm.done = true;
+						fm.doneAt = nowISO();
+						if (!fm.lane) fm.lane = task.laneId;
+					} else {
+						fm.lane = targetLaneId;
+						fm.done = false;
+						delete fm.doneAt;
+					}
 				}
-			}
-			await this.app.vault.modify(file, buildTaskFileContent(frontmatter, body));
+			});
 		}
 	}
 

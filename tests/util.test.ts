@@ -657,6 +657,32 @@ describe("parseQuickCapture", () => {
 		expect(parseQuickCapture("Sache 📅 morgen", DEFAULT_LANES, reference)?.due).toBe("2026-09-21");
 		expect(parseQuickCapture("Sache 📅 uebermorgen", DEFAULT_LANES, reference)?.due).toBe("2026-09-22");
 	});
+
+	it("loest Wochentagsnamen auf (Montag=heute, Dienstag=morgen, Sonntag=+6 Tage)", () => {
+		const reference = new Date(2026, 8, 21); // Montag, 2026-09-21
+		expect(parseQuickCapture("Sache 📅 Montag", DEFAULT_LANES, reference)?.due).toBe("2026-09-21");
+		expect(parseQuickCapture("Sache 📅 Dienstag", DEFAULT_LANES, reference)?.due).toBe("2026-09-22");
+		expect(parseQuickCapture("Sache 📅 Sonntag", DEFAULT_LANES, reference)?.due).toBe("2026-09-27");
+	});
+
+	it("loest 'nächsten Wochentag' streng auf (auch wenn heute der gleiche Tag ist)", () => {
+		const reference = new Date(2026, 8, 21); // Montag, 2026-09-21
+		expect(parseQuickCapture("Sache 📅 nächsten Montag", DEFAULT_LANES, reference)?.due).toBe("2026-09-28");
+		expect(parseQuickCapture("Sache 📅 nächsten Dienstag", DEFAULT_LANES, reference)?.due).toBe("2026-09-22");
+	});
+
+	it("loest 'nächste Woche' auf den Montag der naechsten Woche auf", () => {
+		const reference = new Date(2026, 8, 21); // Montag, 2026-09-21
+		expect(parseQuickCapture("Sache 📅 nächste Woche", DEFAULT_LANES, reference)?.due).toBe("2026-09-28");
+		// Mitte der Woche: naechste Woche beginnt immer am Montag
+		const thursday = new Date(2026, 8, 24); // Donnerstag, 2026-09-24
+		expect(parseQuickCapture("Sache 📅 nächste Woche", DEFAULT_LANES, thursday)?.due).toBe("2026-09-28");
+	});
+
+	it("loest 'naechsten Wochentag' (ASCII-Fallback) korrekt auf", () => {
+		const reference = new Date(2026, 8, 21); // Montag, 2026-09-21
+		expect(parseQuickCapture("Sache 📅 naechsten Montag", DEFAULT_LANES, reference)?.due).toBe("2026-09-28");
+	});
 });
 
 describe("daysSince", () => {
