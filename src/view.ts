@@ -5,6 +5,7 @@ import {
 	addDays,
 	countSubtasks,
 	daysSince,
+	parseSubtaskItems,
 	dueUrgency,
 	fileTaskId,
 	formatLocalDate,
@@ -56,6 +57,7 @@ export class GtdBoardView extends ItemView {
 	/** Mehrfachauswahl-Modus: Klick auf eine Karte waehlt sie aus statt den Bearbeiten-Dialog zu oeffnen. */
 	private selectionMode = false;
 	private selectedTaskIds = new Set<string>();
+	private expandedSubtasks = new Set<string>();
 	private boardEl!: HTMLElement;
 	private searchInputEl!: HTMLInputElement;
 	private contextSelectEl!: HTMLSelectElement;
@@ -1155,15 +1157,64 @@ export class GtdBoardView extends ItemView {
 
 		const subtasks = countSubtasks(task.description);
 		if (subtasks) {
+			const isExpanded = this.expandedSubtasks.has(task.id);
 			const subtasksEl = card.createDiv({ cls: "gtd-card-subtasks" });
-			subtasksEl.createSpan({
+
+			const headerRow = subtasksEl.createDiv({
+				cls: "gtd-card-subtasks-header",
+				attr: { title: t("view.card.subtasksToggleTitle") },
+			});
+			headerRow.createSpan({
 				cls: "gtd-card-subtasks-label",
 				text: `☑ ${subtasks.done}/${subtasks.total}`,
 			});
-			const bar = subtasksEl.createDiv({ cls: "gtd-card-subtasks-bar" });
+			const bar = headerRow.createDiv({ cls: "gtd-card-subtasks-bar" });
 			const fill = bar.createDiv({ cls: "gtd-card-subtasks-bar-fill" });
 			const percent = subtasks.total > 0 ? Math.round((subtasks.done / subtasks.total) * 100) : 0;
 			fill.setCssStyles({ width: `${percent}%` });
+			const chevron = headerRow.createSpan({ cls: "gtd-card-subtasks-chevron" });
+			setIcon(chevron, isExpanded ? "chevron-down" : "chevron-right");
+
+			const listEl = subtasksEl.createDiv({ cls: "gtd-card-subtasks-list" });
+			if (!isExpanded) listEl.setCssStyles({ display: "none" });
+
+			parseSubtaskItems(task.description).forEach((item, idx) => {
+				const row = listEl.createDiv({ cls: "gtd-card-subtask-row" });
+				if (item.done) row.addClass("gtd-card-subtask-done");
+				const cb = row.createEl("input", { attr: { type: "checkbox" } });
+				cb.checked = item.done;
+				row.createSpan({ cls: "gtd-card-subtask-text", text: item.text });
+				cb.addEventListener("click", (evt) => evt.stopPropagation());
+				if (task.source === "file") {
+					cb.addEventListener("change", () => {
+						const checked = cb.checked;
+						let count = 0;
+						const newDesc = (task.description ?? "").split(/\r?\n/).map((line) => {
+							if (/^\s*[-*+]\s*\[[ xX]\]/.test(line)) {
+								if (count++ === idx) return line.replace(/\[[ xX]\]/, checked ? "[x]" : "[ ]");
+							}
+							return line;
+						}).join("\n");
+						void this.plugin.store.patchFileTaskBody(task, newDesc)
+							.then(() => void this.plugin.refreshBoardViews());
+					});
+				} else {
+					cb.disabled = true;
+				}
+			});
+
+			headerRow.addEventListener("click", (evt) => {
+				evt.stopPropagation();
+				if (this.expandedSubtasks.has(task.id)) {
+					this.expandedSubtasks.delete(task.id);
+					listEl.setCssStyles({ display: "none" });
+					setIcon(chevron, "chevron-right");
+				} else {
+					this.expandedSubtasks.add(task.id);
+					listEl.setCssStyles({ display: "" });
+					setIcon(chevron, "chevron-down");
+				}
+			});
 		}
 
 		// Tatsaechliche Lane unabhaengig davon, ob sie als Badge gezeigt wird - wird fuer die

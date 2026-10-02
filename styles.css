@@ -886,13 +886,26 @@
 	margin-top: 6px;
 }
 
+.gtd-card-subtasks-header {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	cursor: pointer;
+	user-select: none;
+}
+
+.gtd-card-subtasks-header:hover .gtd-card-subtasks-label {
+	color: var(--text-normal);
+}
+
 .gtd-card-subtasks-label {
 	font-size: 0.75em;
 	color: var(--text-muted);
+	white-space: nowrap;
 }
 
 .gtd-card-subtasks-bar {
-	margin-top: 2px;
+	flex: 1;
 	height: 4px;
 	border-radius: 2px;
 	background: var(--background-modifier-border);
@@ -902,6 +915,44 @@
 .gtd-card-subtasks-bar-fill {
 	height: 100%;
 	background: var(--interactive-accent);
+}
+
+.gtd-card-subtasks-chevron {
+	color: var(--text-muted);
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+}
+
+.gtd-card-subtasks-chevron .svg-icon {
+	width: 12px;
+	height: 12px;
+}
+
+.gtd-card-subtasks-list {
+	margin-top: 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.gtd-card-subtask-row {
+	display: flex;
+	align-items: baseline;
+	gap: 4px;
+	font-size: 0.8em;
+	color: var(--text-normal);
+}
+
+.gtd-card-subtask-row input[type="checkbox"] {
+	margin: 0;
+	flex-shrink: 0;
+	cursor: pointer;
+}
+
+.gtd-card-subtask-done .gtd-card-subtask-text {
+	text-decoration: line-through;
+	color: var(--text-muted);
 }
 
 .gtd-task-modal .gtd-modal-title-input {

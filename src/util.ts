@@ -567,6 +567,22 @@ export function countSubtasks(description: string | undefined): SubtaskProgress 
 	return total > 0 ? { done, total } : undefined;
 }
 
+export interface SubtaskItem {
+	done: boolean;
+	text: string;
+}
+
+/** Gibt jede Checkbox-Zeile als { done, text }-Objekt zurueck, in Reihenfolge ihres Auftretens. */
+export function parseSubtaskItems(description: string | undefined): SubtaskItem[] {
+	if (!description) return [];
+	const items: SubtaskItem[] = [];
+	for (const line of description.split(/\r?\n/)) {
+		const m = CHECKBOX_RE.exec(line);
+		if (m) items.push({ done: m[2].toLowerCase() === "x", text: m[3] });
+	}
+	return items;
+}
+
 /**
  * Entscheidet, ob eine Aufgabe beim Setzen/Aendern ihrer Faelligkeit aus der Eingang-Lane
  * automatisch in die "Naechste Aktionen"-Lane befoerdert werden soll. Reine Entscheidungslogik,

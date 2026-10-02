@@ -328,6 +328,7 @@ export const en = {
 			staleSomedayText: "⏳ for {days}d",
 			staleSomedayTitle: "Not reviewed for a while - check at the next weekly review.",
 			agendaPersonTitle: "Agenda item for {name}",
+			subtasksToggleTitle: "Expand/collapse subtask list",
 			processTitle: "Process (GTD: clarify & assign to lane)",
 			editDueTitle: "Click to edit due date",
 			revisitOnBadge: "Revisit: {date}",
