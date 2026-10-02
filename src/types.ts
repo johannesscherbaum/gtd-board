@@ -95,6 +95,16 @@ export interface GtdTask {
 	 * die Auffrischungs-Markierungen bei "Wartet auf" und "Irgendwann/Vielleicht".
 	 */
 	lastTouched: number;
+	/**
+	 * Tickler-Datum (YYYY-MM-DD): Aufgabe wird erst ab diesem Datum auf dem Board angezeigt.
+	 * Davor ist sie vollstaendig ausgeblendet (nicht nur visuell gefiltert).
+	 */
+	visibleFrom?: string;
+	/**
+	 * Wiedervorlage-Datum fuer Someday/Maybe-Aufgaben: an diesem Datum wird die Aufgabe
+	 * automatisch zurueck in die Inbox-Lane verschoben, um erneut verarbeitet zu werden.
+	 */
+	revisitOn?: string;
 }
 
 export interface GtdBoardSettings {

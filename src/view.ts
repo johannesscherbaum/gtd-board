@@ -20,7 +20,7 @@ import { getLocale, priorityLabel, recurrenceLabel, t } from "./i18n";
 function intlLocale(): string {
 	return getLocale() === "de" ? "de-DE" : "en-US";
 }
-import { TaskModal, confirmDialog } from "./modals";
+import { ProcessModal, TaskModal, confirmDialog } from "./modals";
 
 export const GTD_BOARD_VIEW_TYPE = "gtd-board-view";
 
@@ -480,6 +480,16 @@ export class GtdBoardView extends ItemView {
 			totalByProject.set(key, (totalByProject.get(key) ?? 0) + 1);
 		}
 
+		const nextActionsLaneId = this.plugin.settings.lanes.find((l) => l.isNextActions)?.id;
+		const projectsWithNextAction = new Set<string | null>();
+		if (nextActionsLaneId) {
+			for (const task of filtered) {
+				if (task.laneId === nextActionsLaneId) {
+					projectsWithNextAction.add(task.project ?? null);
+				}
+			}
+		}
+
 		const projectNames = Array.from(byProject.keys()).sort((a, b) => a.localeCompare(b, intlLocale()));
 
 		if (projectNames.length === 0 && noProject.length === 0) {
@@ -489,19 +499,19 @@ export class GtdBoardView extends ItemView {
 
 		for (const name of projectNames) {
 			container.appendChild(
-				this.renderProjectSection(name, this.sortTasks(byProject.get(name)!), totalByProject.get(name))
+				this.renderProjectSection(name, this.sortTasks(byProject.get(name)!), totalByProject.get(name), !projectsWithNextAction.has(name))
 			);
 		}
 		if (noProject.length > 0) {
 			container.appendChild(
-				this.renderProjectSection(null, this.sortTasks(noProject), totalByProject.get("__no_project__"))
+				this.renderProjectSection(null, this.sortTasks(noProject), totalByProject.get("__no_project__"), !projectsWithNextAction.has(null))
 			);
 		}
 
 		return container;
 	}
 
-	private renderProjectSection(project: string | null, tasks: GtdTask[], totalCount?: number): HTMLElement {
+	private renderProjectSection(project: string | null, tasks: GtdTask[], totalCount?: number, missingNextAction = false): HTMLElement {
 		const sectionKey = project ?? "__no_project__";
 		const collapsed = this.plugin.settings.collapsedProjects.includes(sectionKey);
 
@@ -537,6 +547,13 @@ export class GtdBoardView extends ItemView {
 				? `${openCount}/${totalCount}`
 				: String(openCount);
 		header.createSpan({ cls: "gtd-project-section-count", text: countText });
+
+		if (missingNextAction && project !== null) {
+			const warningEl = header.createSpan({ cls: "gtd-project-no-next-action" });
+			setIcon(warningEl, "alert-triangle");
+			warningEl.setAttribute("title", t("view.projects.noNextAction"));
+			warningEl.setAttribute("aria-label", t("view.projects.noNextAction"));
+		}
 
 		if (!collapsed) {
 			const addBtn = header.createEl("button", { cls: "gtd-project-section-add", text: "+" });
@@ -639,6 +656,8 @@ export class GtdBoardView extends ItemView {
 					project: result.project,
 					due: result.due,
 					reminderAt: result.reminderAt,
+					visibleFrom: result.visibleFrom,
+					revisitOn: result.revisitOn,
 					targetFolder: result.projectFolder,
 				});
 				await this.refresh();
@@ -1098,7 +1117,7 @@ export class GtdBoardView extends ItemView {
 			setIcon(processBtn, "arrow-right-circle");
 			processBtn.addEventListener("click", (evt) => {
 				evt.stopPropagation();
-				this.openEditModal(task);
+				new ProcessModal(this.app, this.plugin, task, () => this.refresh()).open();
 			});
 		}
 
@@ -1124,6 +1143,14 @@ export class GtdBoardView extends ItemView {
 					this.startInlineDueEdit(dueEl, task);
 				});
 			}
+		}
+
+		if (task.revisitOn && !task.done) {
+			const revisitEl = card.createDiv({
+				cls: "gtd-card-revisit",
+				text: t("view.card.revisitOnBadge", { date: task.revisitOn }),
+			});
+			revisitEl.setAttribute("title", t("view.card.revisitOnBadge", { date: task.revisitOn }));
 		}
 
 		const subtasks = countSubtasks(task.description);
@@ -1472,6 +1499,8 @@ export class GtdBoardView extends ItemView {
 					project: result.project,
 					due: result.due,
 					reminderAt: result.reminderAt,
+					visibleFrom: result.visibleFrom,
+					revisitOn: result.revisitOn,
 					targetFolder: result.projectFolder,
 				});
 				await this.refresh();

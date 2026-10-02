@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS, GtdBoardSettings } from "./types";
 import { GTD_BOARD_VIEW_TYPE, GtdBoardView } from "./view";
 import { ReminderScheduler } from "./reminders";
 import { buildIcsContent, isPathInFolder, nowISO } from "./util";
-import { QuickCaptureModal, ReviewModal } from "./modals";
+import { DailyReviewModal, QuickCaptureModal, ReviewModal } from "./modals";
 import { detectAndSetLocale, t } from "./i18n";
 
 /** Wie oft (Millisekunden) im Hintergrund auf faellige Archivierung/Wiederholungen geprueft wird. */
@@ -59,6 +59,12 @@ export default class GtdBoardPlugin extends Plugin {
 			id: "gtd-weekly-review",
 			name: t("commands.weeklyReview"),
 			callback: () => void this.openWeeklyReview(),
+		});
+
+		this.addCommand({
+			id: "gtd-daily-review",
+			name: t("commands.dailyReview"),
+			callback: () => void this.openDailyReview(),
 		});
 
 		this.addSettingTab(new GtdBoardSettingTab(this.app, this));
@@ -294,13 +300,20 @@ export default class GtdBoardPlugin extends Plugin {
 		try {
 			const advanced = await this.store.advanceRecurringTasks();
 			const archived = await this.store.archiveEligibleDoneTasks();
-			if (advanced > 0 || archived > 0) {
+			const promoted = await this.store.advanceSomedayRevisits();
+			if (advanced > 0 || archived > 0 || promoted > 0) {
 				await this.refreshBoardViews();
 			}
 			if (archived > 0) new Notice(t("notice.archived", { count: archived }));
+			if (promoted > 0) new Notice(t("notice.somedayPromoted", { count: promoted }));
 		} catch (err) {
 			console.error("GTD Board: Wartung fehlgeschlagen", err);
 		}
+	}
+
+	async openDailyReview(): Promise<void> {
+		const tasks = await this.store.getAllTasks();
+		new DailyReviewModal(this.app, this, tasks).open();
 	}
 
 	/**

@@ -1098,3 +1098,85 @@
 .is-mobile .gtd-card {
 	padding: 10px 12px;
 }
+
+/* ── Feature: Projekt ohne naechste Aktion ─────────────────────────────────── */
+.gtd-project-no-next-action {
+	display: inline-flex;
+	align-items: center;
+	color: var(--color-yellow);
+	opacity: 0.85;
+	margin-left: 4px;
+	cursor: default;
+}
+
+.gtd-project-no-next-action svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* ── Feature: revisitOn-Badge auf der Karte ────────────────────────────────── */
+.gtd-card-revisit {
+	font-size: 0.75em;
+	color: var(--color-purple);
+	margin-top: 2px;
+	opacity: 0.9;
+}
+
+/* ── Feature: Tagesueberblick (DailyReviewModal) ──────────────────────────── */
+.gtd-daily-review-modal .gtd-daily-review-section {
+	font-size: 0.9em;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--text-muted);
+	margin: 16px 0 6px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding-bottom: 4px;
+}
+
+.gtd-daily-review-empty {
+	color: var(--text-muted);
+	font-style: italic;
+	margin: 12px 0;
+}
+
+.gtd-daily-review-row {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	padding: 4px 0;
+	border-bottom: 1px solid var(--background-modifier-border-hover);
+}
+
+.gtd-daily-review-title {
+	flex: 1;
+	font-weight: 500;
+	cursor: pointer;
+	text-decoration: underline dotted;
+}
+
+.gtd-daily-review-title:hover {
+	color: var(--interactive-accent);
+}
+
+.gtd-daily-review-meta {
+	font-size: 0.8em;
+	color: var(--text-muted);
+	white-space: nowrap;
+}
+
+/* ── Feature: Process-Modal (GTD Clarify) ─────────────────────────────────── */
+.gtd-process-modal .gtd-process-question {
+	font-size: 1.05em;
+	margin: 8px 0 12px;
+}
+
+.gtd-process-modal .setting-item {
+	border: none;
+	padding: 4px 0;
+}
+
+.gtd-process-modal .setting-item-control {
+	flex-wrap: wrap;
+	gap: 8px;
+}

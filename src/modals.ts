@@ -2,7 +2,9 @@ import { App, ButtonComponent, Component, ConfirmationModal, MarkdownRenderer, M
 import type GtdBoardPlugin from "./main";
 import { GtdTask, LaneConfig, RecurrenceRule, TaskPriority } from "./types";
 import {
+	addDays,
 	daysSince,
+	formatLocalDate,
 	hasTimeComponent,
 	parseLocalDateTime,
 	parseQuickCapture,
@@ -24,6 +26,8 @@ export interface TaskModalResult {
 	/** Vault path of the target project folder (set when projectRootFolder is configured and a folder-project was chosen). */
 	projectFolder?: string;
 	person?: string;
+	visibleFrom?: string;
+	revisitOn?: string;
 }
 
 export interface TaskModalOptions {
@@ -57,6 +61,8 @@ export class TaskModal extends Modal {
 	private project: string;
 	private projectFolder: string | undefined = undefined;
 	private person: string;
+	private visibleFrom: string;
+	private revisitOn: string;
 	private previewComponent = new Component();
 	/** Steuert, ob im Beschreibungs-Editor Markdown-Quelltext oder die gerenderte Vorschau angezeigt wird. */
 	private descriptionShowingPreview = false;
@@ -75,6 +81,8 @@ export class TaskModal extends Modal {
 		this.delegatedTo = task?.delegatedTo ?? "";
 		this.project = task?.project ?? options.initialProject ?? "";
 		this.person = task?.person ?? "";
+		this.visibleFrom = task?.visibleFrom ?? "";
+		this.revisitOn = task?.revisitOn ?? "";
 	}
 
 	/** Zerlegt einen gespeicherten Datums(-zeit)-Wert in Datums- und Uhrzeit-Teil fuer die getrennten Inputs. */
@@ -296,6 +304,25 @@ export class TaskModal extends Modal {
 			text.setValue(this.tags).onChange((v) => (this.tags = v));
 		});
 
+		new Setting(contentEl)
+			.setName(t("taskModal.visibleFrom"))
+			.setDesc(t("taskModal.visibleFromDesc"))
+			.addText((text) => {
+				text.inputEl.type = "date";
+				text.setValue(this.visibleFrom).onChange((v) => (this.visibleFrom = v));
+			});
+
+		const isSomedayLane = this.plugin.settings.lanes.find((l) => l.id === this.options.laneId)?.isSomeday;
+		if (isSomedayLane) {
+			new Setting(contentEl)
+				.setName(t("taskModal.revisitOn"))
+				.setDesc(t("taskModal.revisitOnDesc"))
+				.addText((text) => {
+					text.inputEl.type = "date";
+					text.setValue(this.revisitOn).onChange((v) => (this.revisitOn = v));
+				});
+		}
+
 		const buttonRow = new Setting(contentEl);
 		buttonRow.addButton((btn) =>
 			btn
@@ -336,6 +363,8 @@ export class TaskModal extends Modal {
 			project: this.project.trim() || undefined,
 			projectFolder: this.projectFolder,
 			person: this.options.showPersonField ? (this.person.trim() || undefined) : undefined,
+			visibleFrom: this.visibleFrom.trim() || undefined,
+			revisitOn: this.revisitOn.trim() || undefined,
 		});
 		this.close();
 	}
@@ -619,6 +648,308 @@ export class ReviewModal extends Modal {
 
 	onClose(): void {
 		this.previewComponent.unload();
+		this.contentEl.empty();
+	}
+}
+
+/**
+ * Tagesueberblick (GTD-inspiriert): zeigt auf einen Blick, was heute/ueberfaellig ist,
+ * was in den naechsten 3 Tagen faellig wird, und welche delegierten Aufgaben lange keine
+ * Regung hatten. Rein lesend - zum Bearbeiten wird der normale TaskModal geoeffnet.
+ */
+export class DailyReviewModal extends Modal {
+	constructor(app: App, private plugin: GtdBoardPlugin, private tasks: GtdTask[]) {
+		super(app);
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		contentEl.addClass("gtd-daily-review-modal");
+		this.setTitle(t("dailyReview.title"));
+
+		const todayStr = formatLocalDate(new Date());
+		const in3Days = formatLocalDate(addDays(new Date(), 3));
+
+		const openTasks = this.tasks.filter((t) => !t.done);
+
+		const todayOverdue = openTasks.filter(
+			(t) => t.due && t.due.slice(0, 10) <= todayStr
+		).sort((a, b) => (a.due ?? "").localeCompare(b.due ?? ""));
+
+		const soon = openTasks.filter(
+			(t) => t.due && t.due.slice(0, 10) > todayStr && t.due.slice(0, 10) <= in3Days
+		).sort((a, b) => (a.due ?? "").localeCompare(b.due ?? ""));
+
+		const staleWaiting = openTasks.filter(
+			(t) => t.delegatedTo && daysSince(t.lastTouched) >= this.plugin.settings.delegateFollowUpDays
+		).sort((a, b) => a.lastTouched - b.lastTouched);
+
+		const hasContent = todayOverdue.length > 0 || soon.length > 0 || staleWaiting.length > 0;
+		if (!hasContent) {
+			contentEl.createEl("p", { cls: "gtd-daily-review-empty", text: t("dailyReview.empty") });
+		} else {
+			if (todayOverdue.length > 0) {
+				contentEl.createEl("h3", { cls: "gtd-daily-review-section", text: t("dailyReview.sectionToday") });
+				for (const task of todayOverdue) this.renderRow(contentEl, task);
+			}
+			if (soon.length > 0) {
+				contentEl.createEl("h3", { cls: "gtd-daily-review-section", text: t("dailyReview.sectionSoon") });
+				for (const task of soon) this.renderRow(contentEl, task);
+			}
+			if (staleWaiting.length > 0) {
+				contentEl.createEl("h3", { cls: "gtd-daily-review-section", text: t("dailyReview.sectionWaiting") });
+				for (const task of staleWaiting) this.renderRow(contentEl, task);
+			}
+		}
+
+		new Setting(contentEl).addButton((btn) =>
+			btn.setButtonText(t("dailyReview.close")).setCta().onClick(() => this.close())
+		);
+	}
+
+	private renderRow(container: HTMLElement, task: GtdTask): void {
+		const row = container.createDiv({ cls: "gtd-daily-review-row" });
+		const lane = this.plugin.settings.lanes.find((l) => l.id === task.laneId);
+		const meta: string[] = [];
+		if (lane) meta.push(lane.name);
+		if (task.due) meta.push(`📅 ${task.due.slice(0, 10)}`);
+		if (task.delegatedTo) meta.push(`👤 ${task.delegatedTo}`);
+
+		const title = row.createSpan({ cls: "gtd-daily-review-title", text: task.title });
+		title.addEventListener("click", () => {
+			this.close();
+			new TaskModal(this.app, this.plugin, {
+				mode: "edit",
+				laneId: task.laneId,
+				task,
+				onSubmit: async (result) => {
+					if (task.source === "file") {
+						await this.plugin.store.updateTaskFile(task, result);
+					} else {
+						await this.plugin.store.convertInlineToFile(task, result);
+					}
+					await this.plugin.refreshBoardViews();
+				},
+			}).open();
+		});
+
+		if (meta.length > 0) {
+			row.createSpan({ cls: "gtd-daily-review-meta", text: meta.join(" · ") });
+		}
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
+
+/**
+ * Gefuehrter Verarbeitungs-Dialog (GTD Clarify): fuehrt Schritt fuer Schritt durch die
+ * GTD-Verarbeitungslogik - handlungsrelevant? 2-Minuten-Regel? Delegieren oder selbst
+ * erledigen? Nicht handlungsrelevant? - und nimmt die jeweilige Aktion direkt vor.
+ */
+export class ProcessModal extends Modal {
+	constructor(
+		app: App,
+		private plugin: GtdBoardPlugin,
+		private task: GtdTask,
+		private onDone: () => Promise<void>
+	) {
+		super(app);
+	}
+
+	onOpen(): void {
+		this.contentEl.addClass("gtd-process-modal");
+		this.setTitle(t("processModal.title"));
+		this.renderStepActionable();
+	}
+
+	private clear(): void {
+		this.contentEl.empty();
+		this.contentEl.addClass("gtd-process-modal");
+		this.setTitle(t("processModal.title"));
+	}
+
+	private renderStepActionable(): void {
+		this.clear();
+		this.contentEl.createEl("p", { cls: "gtd-process-question", text: `"${this.task.title}"` });
+		this.contentEl.createEl("p", { cls: "gtd-process-question", text: t("processModal.isActionable") });
+		new Setting(this.contentEl)
+			.addButton((btn) => btn.setButtonText(t("processModal.yes")).setCta().onClick(() => this.renderStepTwoMinutes()))
+			.addButton((btn) => btn.setButtonText(t("processModal.no")).onClick(() => this.renderStepNotActionable()));
+	}
+
+	private renderStepTwoMinutes(): void {
+		this.clear();
+		this.contentEl.createEl("p", { cls: "gtd-process-question", text: `"${this.task.title}"` });
+		this.contentEl.createEl("p", { cls: "gtd-process-question", text: t("processModal.twoMinutes") });
+		new Setting(this.contentEl)
+			.addButton((btn) => btn.setButtonText(t("processModal.doNow")).setCta().onClick(() => void this.doNow()))
+			.addButton((btn) => btn.setButtonText(t("processModal.notTwoMinutes")).onClick(() => this.renderStepDelegate()));
+	}
+
+	private renderStepDelegate(): void {
+		this.clear();
+		this.contentEl.createEl("p", { cls: "gtd-process-question", text: `"${this.task.title}"` });
+		new Setting(this.contentEl)
+			.addButton((btn) => btn.setButtonText(t("processModal.delegate")).onClick(() => this.renderStepDelegateForm()))
+			.addButton((btn) => btn.setButtonText(t("processModal.doSelf")).setCta().onClick(() => this.renderStepChooseLane()));
+	}
+
+	private renderStepDelegateForm(): void {
+		this.clear();
+		let delegateName = "";
+		new Setting(this.contentEl)
+			.setName(t("processModal.delegateTo"))
+			.addText((text) => text.onChange((v) => (delegateName = v)));
+		new Setting(this.contentEl)
+			.addButton((btn) => btn.setButtonText(t("processModal.delegateBtn")).setCta().onClick(() => void this.delegate(delegateName)))
+			.addButton((btn) => btn.setButtonText(t("taskModal.cancel")).onClick(() => this.renderStepDelegate()));
+	}
+
+	private renderStepChooseLane(): void {
+		this.clear();
+		const lanes = this.plugin.settings.lanes.filter((l) => !l.isDone && !l.isPlanned && !l.isInbox);
+		let selectedLaneId = lanes[0]?.id ?? this.plugin.store.defaultLaneId();
+		new Setting(this.contentEl)
+			.setName(t("processModal.chooseLane"))
+			.addDropdown((dd) => {
+				for (const lane of lanes) dd.addOption(lane.id, lane.name);
+				dd.setValue(selectedLaneId).onChange((v) => (selectedLaneId = v));
+			});
+		new Setting(this.contentEl)
+			.addButton((btn) => btn.setButtonText(t("processModal.save")).setCta().onClick(() => void this.moveTo(selectedLaneId)))
+			.addButton((btn) => btn.setButtonText(t("taskModal.cancel")).onClick(() => this.renderStepDelegate()));
+	}
+
+	private renderStepNotActionable(): void {
+		this.clear();
+		this.contentEl.createEl("p", { cls: "gtd-process-question", text: `"${this.task.title}"` });
+		this.contentEl.createEl("p", { cls: "gtd-process-question", text: t("processModal.notActionable") });
+		const somedayLane = this.plugin.settings.lanes.find((l) => l.isSomeday);
+		new Setting(this.contentEl)
+			.addButton((btn) => {
+				btn.setButtonText(t("processModal.someday"));
+				if (somedayLane) btn.onClick(() => void this.moveTo(somedayLane.id));
+				else btn.setDisabled(true);
+			})
+			.addButton((btn) => btn.setButtonText(t("processModal.tickler")).onClick(() => this.renderStepTickler()))
+			.addButton((btn) => btn.setButtonText(t("processModal.delete")).setWarning().onClick(() => void this.deleteTask()));
+	}
+
+	private renderStepTickler(): void {
+		this.clear();
+		let visibleFrom = "";
+		new Setting(this.contentEl)
+			.setName(t("processModal.ticklerDate"))
+			.addText((text) => {
+				text.inputEl.type = "date";
+				text.onChange((v) => (visibleFrom = v));
+			});
+		new Setting(this.contentEl)
+			.addButton((btn) => btn.setButtonText(t("processModal.ticklerSave")).setCta().onClick(() => void this.setTickler(visibleFrom)))
+			.addButton((btn) => btn.setButtonText(t("taskModal.cancel")).onClick(() => this.renderStepNotActionable()));
+	}
+
+	private async doNow(): Promise<void> {
+		const doneLane = this.plugin.settings.lanes.find((l) => l.isDone);
+		if (!doneLane) { new Notice(t("notice.noDoneLane")); return; }
+		if (this.task.source === "file") {
+			await this.plugin.store.moveFileTask(this.task, doneLane.id);
+		} else {
+			await this.plugin.store.moveInlineTask(this.task, doneLane.id);
+		}
+		this.close();
+		await this.onDone();
+	}
+
+	private async delegate(name: string): Promise<void> {
+		const waitingLane = this.plugin.settings.lanes.find((l) => !l.isDone && !l.isPlanned && !l.isInbox && !l.isNextActions);
+		const targetLaneId = waitingLane?.id ?? this.plugin.store.defaultLaneId();
+		if (this.task.source === "file") {
+			await this.plugin.store.updateTaskFile(this.task, {
+				title: this.task.title,
+				description: this.task.description,
+				due: this.task.due,
+				reminderAt: this.task.reminderAt,
+				priority: this.task.priority,
+				recurrence: this.task.recurrence,
+				contexts: this.task.contexts,
+				tags: this.task.tags,
+				delegatedTo: name.trim() || undefined,
+				project: this.task.project,
+				person: this.task.person,
+			});
+			await this.plugin.store.moveFileTask(this.task, targetLaneId);
+		} else {
+			await this.plugin.store.convertInlineToFile(this.task, {
+				title: this.task.title,
+				description: this.task.description,
+				due: this.task.due,
+				priority: this.task.priority,
+				recurrence: this.task.recurrence,
+				contexts: this.task.contexts,
+				tags: this.task.tags,
+				delegatedTo: name.trim() || undefined,
+				project: this.task.project,
+			}, targetLaneId);
+		}
+		this.close();
+		await this.onDone();
+	}
+
+	private async moveTo(laneId: string): Promise<void> {
+		if (this.task.source === "file") {
+			await this.plugin.store.moveFileTask(this.task, laneId);
+		} else {
+			await this.plugin.store.moveInlineTask(this.task, laneId);
+		}
+		this.close();
+		await this.onDone();
+	}
+
+	private async setTickler(visibleFrom: string): Promise<void> {
+		if (!visibleFrom) return;
+		if (this.task.source === "file") {
+			await this.plugin.store.updateTaskFile(this.task, {
+				title: this.task.title,
+				description: this.task.description,
+				due: this.task.due,
+				reminderAt: this.task.reminderAt,
+				priority: this.task.priority,
+				recurrence: this.task.recurrence,
+				contexts: this.task.contexts,
+				tags: this.task.tags,
+				delegatedTo: this.task.delegatedTo,
+				project: this.task.project,
+				person: this.task.person,
+				visibleFrom,
+			});
+		} else {
+			await this.plugin.store.convertInlineToFile(this.task, {
+				title: this.task.title,
+				description: this.task.description,
+				due: this.task.due,
+				priority: this.task.priority,
+				recurrence: this.task.recurrence,
+				contexts: this.task.contexts,
+				tags: this.task.tags,
+				delegatedTo: this.task.delegatedTo,
+				project: this.task.project,
+				visibleFrom,
+			});
+		}
+		this.close();
+		await this.onDone();
+	}
+
+	private async deleteTask(): Promise<void> {
+		await this.plugin.store.deleteTask(this.task);
+		this.close();
+		await this.onDone();
+	}
+
+	onClose(): void {
 		this.contentEl.empty();
 	}
 }

@@ -6,6 +6,7 @@ import {
 	buildTaskFileContent,
 	deriveProjectFromPath,
 	fileTaskId,
+	formatLocalDate,
 	inlineTaskId,
 	isCheckboxLine,
 	isPathInFolder,
@@ -71,6 +72,8 @@ export class GtdStore {
 			? normalizePath(this.settings.projectRootFolder.trim())
 			: "";
 
+		const todayStr = formatLocalDate(new Date());
+
 		for (const file of files) {
 			// Archivierte Aufgaben sind bewusst kein Teil des Boards mehr.
 			if (isPathInFolder(file.path, archiveFolder)) continue;
@@ -78,7 +81,7 @@ export class GtdStore {
 			const inTaskFolder = isPathInFolder(file.path, taskFolder);
 			if (inTaskFolder) {
 				const task = await this.readFileTask(file);
-				if (task) tasks.push(task);
+				if (task && !this.isHidden(task, todayStr)) tasks.push(task);
 				continue;
 			}
 
@@ -87,7 +90,7 @@ export class GtdStore {
 			// koennen ggf. noch als Inline-Aufgaben-Quelle gescannt werden.
 			if (projectRootFolder && isPathInFolder(file.path, projectRootFolder)) {
 				const task = await this.readFileTask(file);
-				if (task) {
+				if (task && !this.isHidden(task, todayStr)) {
 					tasks.push(task);
 					continue;
 				}
@@ -106,6 +109,11 @@ export class GtdStore {
 			}
 		}
 		return tasks;
+	}
+
+	/** Tickler-Pruefung: Aufgabe ist versteckt, solange visibleFrom in der Zukunft liegt. */
+	private isHidden(task: GtdTask, todayStr: string): boolean {
+		return !!task.visibleFrom && task.visibleFrom > todayStr;
 	}
 
 	/** Liefert die Standard-Lane fuer neue/nicht zuordenbare Aufgaben (erste normale, nicht-virtuelle Lane). */
@@ -178,6 +186,8 @@ export class GtdStore {
 			filePath: file.path,
 			order: typeof frontmatter.order === "number" ? frontmatter.order : 0,
 			lastTouched: this.touchedAt(id, file.stat.mtime),
+			visibleFrom: typeof frontmatter.visibleFrom === "string" ? frontmatter.visibleFrom : undefined,
+			revisitOn: typeof frontmatter.revisitOn === "string" ? frontmatter.revisitOn : undefined,
 		};
 		this.fileCache.set(cacheKey, { mtime: file.stat.mtime, task });
 		return task;
@@ -254,10 +264,12 @@ export class GtdStore {
 		project?: string;
 		due?: string;
 		reminderAt?: string;
+		visibleFrom?: string;
+		revisitOn?: string;
 		/** Optionaler Zielordner; ueberschreibt taskFilesFolder (z. B. fuer Projekt-Unterordner). */
 		targetFolder?: string;
 	}): Promise<TFile> {
-		const { laneId, title, description, priority, contexts, tags, recurrence, delegatedTo, project, due, reminderAt, targetFolder } =
+		const { laneId, title, description, priority, contexts, tags, recurrence, delegatedTo, project, due, reminderAt, visibleFrom, revisitOn, targetFolder } =
 			options;
 		const destFolder = normalizePath(targetFolder ?? this.settings.taskFilesFolder);
 		await this.ensureFolder(destFolder);
@@ -286,6 +298,8 @@ export class GtdStore {
 				recurrence: recurrence,
 				delegatedTo: delegatedTo && delegatedTo.trim().length > 0 ? delegatedTo.trim() : undefined,
 				project: project && project.trim().length > 0 ? project.trim() : undefined,
+				visibleFrom: visibleFrom?.trim() || undefined,
+				revisitOn: revisitOn?.trim() || undefined,
 				created: nowISO(),
 				order: Date.now(),
 			},
@@ -351,6 +365,8 @@ export class GtdStore {
 			delegatedTo?: string;
 			project?: string;
 			person?: string;
+			visibleFrom?: string;
+			revisitOn?: string;
 		}
 	): Promise<void> {
 		const file = this.app.vault.getAbstractFileByPath(task.filePath);
@@ -373,6 +389,8 @@ export class GtdStore {
 		frontmatter.delegatedTo = fields.delegatedTo?.trim() ? fields.delegatedTo.trim() : undefined;
 		frontmatter.project = fields.project?.trim() ? fields.project.trim() : undefined;
 		frontmatter.person = fields.person?.trim() ? fields.person.trim() : undefined;
+		frontmatter.visibleFrom = fields.visibleFrom?.trim() || undefined;
+		frontmatter.revisitOn = fields.revisitOn?.trim() || undefined;
 
 		const newBody = fields.description !== undefined ? fields.description : body;
 		const newContent = buildTaskFileContent(frontmatter, newBody);
@@ -505,6 +523,8 @@ export class GtdStore {
 			tags?: string[];
 			delegatedTo?: string;
 			project?: string;
+			visibleFrom?: string;
+			revisitOn?: string;
 		},
 		targetLaneId?: string
 	): Promise<TFile> {
@@ -544,6 +564,8 @@ export class GtdStore {
 				tags: fields.tags ?? task.tags,
 				delegatedTo: (fields.delegatedTo ?? task.delegatedTo)?.trim() || undefined,
 				project: (fields.project ?? task.project)?.trim() || undefined,
+				visibleFrom: (fields.visibleFrom ?? task.visibleFrom)?.trim() || undefined,
+				revisitOn: (fields.revisitOn ?? task.revisitOn)?.trim() || undefined,
 				created: nowISO(),
 				order: Date.now(),
 			},
@@ -680,6 +702,45 @@ export class GtdStore {
 			if (changed) await this.app.vault.modify(file, lines.join("\n"));
 		}
 		return advanced;
+	}
+
+	/**
+	 * Prueft Someday/Maybe-Aufgaben mit gesetztem revisitOn-Datum: erreicht das Datum den
+	 * heutigen Tag, wird die Aufgabe automatisch in die Inbox-Lane verschoben, damit der
+	 * Nutzer sie erneut verarbeitet. Gibt die Anzahl der versetzten Aufgaben zurueck.
+	 */
+	async advanceSomedayRevisits(): Promise<number> {
+		const inboxLane = this.settings.lanes.find((l) => l.isInbox);
+		if (!inboxLane) return 0;
+		const todayStr = formatLocalDate(new Date());
+		const taskFolder = normalizePath(this.settings.taskFilesFolder);
+		const archiveFolder = this.effectiveArchiveFolder();
+		const projectRootFolder = this.settings.projectRootFolder?.trim()
+			? normalizePath(this.settings.projectRootFolder.trim())
+			: "";
+		let promoted = 0;
+
+		for (const file of this.app.vault.getMarkdownFiles()) {
+			const inTaskFolder = isPathInFolder(file.path, taskFolder);
+			const inProjectFolder = projectRootFolder && isPathInFolder(file.path, projectRootFolder);
+			if (!inTaskFolder && !inProjectFolder) continue;
+			if (isPathInFolder(file.path, archiveFolder)) continue;
+
+			const content = await this.app.vault.read(file);
+			const { frontmatter } = parseTaskFile(content);
+			const done = frontmatter.done === true || frontmatter.done === "true";
+			if (done) continue;
+			const revisitOn = typeof frontmatter.revisitOn === "string" ? frontmatter.revisitOn : undefined;
+			if (!revisitOn || revisitOn > todayStr) continue;
+
+			await this.app.fileManager.processFrontMatter(file, (fm) => {
+				fm.lane = inboxLane.id;
+				fm.revisitOn = undefined;
+			});
+			this.invalidateCacheFor(file.path);
+			promoted++;
+		}
+		return promoted;
 	}
 
 	private async ensureFolder(path: string): Promise<void> {
