@@ -205,9 +205,25 @@ export default class GtdBoardPlugin extends Plugin {
 		if (!Array.isArray(this.settings.collapsedContexts)) {
 			this.settings.collapsedContexts = [];
 		}
+		if (typeof this.settings.lastViewMode !== "string") {
+			this.settings.lastViewMode = DEFAULT_SETTINGS.lastViewMode;
+		}
+		if (typeof this.settings.lastContextFilter !== "string") {
+			this.settings.lastContextFilter = DEFAULT_SETTINGS.lastContextFilter;
+		}
+		if (typeof this.settings.lastProjectFilter !== "string") {
+			this.settings.lastProjectFilter = DEFAULT_SETTINGS.lastProjectFilter;
+		}
 	}
 
 	async saveSettings(): Promise<void> {
+		await this.saveData(this.settings);
+		this.store.invalidateCache();
+	}
+
+	/** Speichert nur den UI-Zustand (ViewMode, Filter) ohne Cache-Invalidierung. */
+	async saveUiState(partial: Partial<GtdBoardSettings>): Promise<void> {
+		Object.assign(this.settings, partial);
 		await this.saveData(this.settings);
 	}
 

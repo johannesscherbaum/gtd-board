@@ -365,6 +365,22 @@
 	color: var(--text-normal);
 }
 
+.gtd-project-section-close {
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	color: var(--text-muted);
+	padding: 0 4px;
+	display: flex;
+	align-items: center;
+	opacity: 0.6;
+}
+
+.gtd-project-section-close:hover {
+	color: var(--color-green, #30d158);
+	opacity: 1;
+}
+
 /* Projekt-Detailansicht */
 .gtd-project-detail {
 	display: flex;
@@ -404,6 +420,25 @@
 .gtd-project-detail-title {
 	font-weight: 600;
 	color: var(--text-accent);
+	flex: 1;
+}
+
+.gtd-project-detail-close {
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	color: var(--text-muted);
+	padding: 2px 6px;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	opacity: 0.6;
+}
+
+.gtd-project-detail-close:hover {
+	color: var(--color-green, #30d158);
+	opacity: 1;
+	background: var(--background-modifier-hover);
 }
 
 .gtd-project-detail-body {
@@ -702,6 +737,20 @@
 	font-weight: 500;
 	flex: 1;
 	word-break: break-word;
+	cursor: text;
+}
+
+.gtd-card-title-input {
+	font-weight: 500;
+	flex: 1;
+	width: 100%;
+	border: 1px solid var(--interactive-accent);
+	border-radius: 3px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	padding: 1px 4px;
+	font-size: inherit;
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 30%, transparent);
 }
 
 .gtd-card-done-checkbox {
@@ -727,6 +776,29 @@
 	margin-top: 4px;
 	font-size: 0.8em;
 	color: var(--text-muted);
+}
+
+.gtd-card-due-editable {
+	cursor: pointer;
+	border-radius: 3px;
+	padding: 1px 3px;
+	margin: -1px -3px;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.gtd-card-due-editable:hover {
+	background: var(--background-modifier-hover);
+}
+
+.gtd-card-due-input {
+	border: 1px solid var(--interactive-accent);
+	border-radius: 3px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	padding: 1px 4px;
+	font-size: inherit;
 }
 
 .gtd-card-due-overdue {

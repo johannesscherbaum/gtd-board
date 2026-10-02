@@ -27,10 +27,28 @@ import {
  * arbeiten. Es gibt keinen eigenen persistenten Zustand ausser dem, was im Vault steht.
  */
 export class GtdStore {
+	private fileCache = new Map<string, { mtime: number; task: GtdTask | null }>();
+	private inlineCache = new Map<string, { mtime: number; tasks: GtdTask[] }>();
+
 	constructor(private app: App, private getSettings: () => GtdBoardSettings) {}
 
 	private get settings(): GtdBoardSettings {
 		return this.getSettings();
+	}
+
+	/** Leert den Datei-Cache vollstaendig, z. B. nach Aenderung der Einstellungen. */
+	invalidateCache(): void {
+		this.fileCache.clear();
+		this.inlineCache.clear();
+	}
+
+	/** Entfernt einzelne Pfade aus dem Cache (nach einer Mutation, damit das naechste Read frisch parst). */
+	private invalidateCacheFor(...paths: string[]): void {
+		for (const path of paths) {
+			this.fileCache.delete(path);
+			this.fileCache.delete(`${path}:agenda`);
+			this.inlineCache.delete(path);
+		}
 	}
 
 	/**
@@ -111,9 +129,17 @@ export class GtdStore {
 	 * auf ein vorhandenes `lane`-Frontmatter-Feld wird dabei verzichtet.
 	 */
 	private async readFileTask(file: TFile, isAgendaFile = false): Promise<GtdTask | null> {
+		const cacheKey = isAgendaFile ? `${file.path}:agenda` : file.path;
+		const cached = this.fileCache.get(cacheKey);
+		if (cached !== undefined && cached.mtime === file.stat.mtime) {
+			return cached.task;
+		}
 		const content = await this.app.vault.read(file);
 		const { frontmatter, body } = parseTaskFile(content);
-		if (!isAgendaFile && !frontmatter.lane) return null;
+		if (!isAgendaFile && !frontmatter.lane) {
+			this.fileCache.set(cacheKey, { mtime: file.stat.mtime, task: null });
+			return null;
+		}
 		let laneId: string;
 		if (isAgendaFile) {
 			laneId = AGENDA_LANE_ID;
@@ -133,7 +159,7 @@ export class GtdStore {
 		const projectRoot = this.settings.projectRootFolder?.trim() || this.settings.taskFilesFolder;
 		const project = explicitProject
 			?? (!isAgendaFile ? deriveProjectFromPath(file.path, projectRoot) : undefined);
-		return {
+		const task: GtdTask = {
 			id,
 			source: "file",
 			title: frontmatter.title || file.basename,
@@ -153,6 +179,8 @@ export class GtdStore {
 			order: typeof frontmatter.order === "number" ? frontmatter.order : 0,
 			lastTouched: this.touchedAt(id, file.stat.mtime),
 		};
+		this.fileCache.set(cacheKey, { mtime: file.stat.mtime, task });
+		return task;
 	}
 
 	/**
@@ -167,6 +195,10 @@ export class GtdStore {
 	}
 
 	private async readInlineTasks(file: TFile): Promise<GtdTask[]> {
+		const cached = this.inlineCache.get(file.path);
+		if (cached !== undefined && cached.mtime === file.stat.mtime) {
+			return cached.tasks;
+		}
 		const content = await this.app.vault.read(file);
 		const lines = content.split(/\r?\n/);
 		const tasks: GtdTask[] = [];
@@ -205,6 +237,7 @@ export class GtdStore {
 				lastTouched: this.touchedAt(id, file.stat.mtime),
 			});
 		});
+		this.inlineCache.set(file.path, { mtime: file.stat.mtime, tasks });
 		return tasks;
 	}
 
@@ -344,14 +377,26 @@ export class GtdStore {
 		const newBody = fields.description !== undefined ? fields.description : body;
 		const newContent = buildTaskFileContent(frontmatter, newBody);
 		await this.app.vault.modify(file, newContent);
+		this.invalidateCacheFor(file.path);
 
 		if (fields.title !== undefined && fields.title.trim() !== file.basename) {
 			const newBase = sanitizeFileName(fields.title);
 			const newPath = joinPath(file.parent?.path ?? this.settings.taskFilesFolder, `${newBase}.md`);
 			if (newPath !== file.path) {
 				await this.app.fileManager.renameFile(file, newPath);
+				this.invalidateCacheFor(newPath);
 			}
 		}
+	}
+
+	/** Aendert nur das Faelligkeitsdatum einer Datei-Aufgabe (atomic, ohne andere Felder anzufassen). */
+	async patchFileTaskDue(task: GtdTask, due: string | undefined): Promise<void> {
+		const file = this.app.vault.getAbstractFileByPath(task.filePath);
+		if (!(file instanceof TFile)) return;
+		await this.app.fileManager.processFrontMatter(file, (fm) => {
+			fm.due = due?.trim() || undefined;
+		});
+		this.invalidateCacheFor(file.path);
 	}
 
 	/**
@@ -380,6 +425,7 @@ export class GtdStore {
 				delete fm.doneAt;
 			}
 		});
+		this.invalidateCacheFor(file.path);
 	}
 
 	/**
@@ -420,6 +466,7 @@ export class GtdStore {
 					}
 				}
 			});
+			this.invalidateCacheFor(filePath);
 		}
 	}
 
@@ -438,6 +485,7 @@ export class GtdStore {
 		if (line === -1) return;
 		lines[line] = rewriteInlineLineForLane(lines[line], this.settings.lanes, newLaneId);
 		await this.app.vault.modify(file, lines.join("\n"));
+		this.invalidateCacheFor(file.path);
 	}
 
 	/**
@@ -468,6 +516,7 @@ export class GtdStore {
 			if (line !== -1) {
 				lines.splice(line, 1);
 				await this.app.vault.modify(sourceFile, lines.join("\n"));
+				this.invalidateCacheFor(sourceFile.path);
 			}
 		}
 
@@ -507,6 +556,7 @@ export class GtdStore {
 	async deleteTask(task: GtdTask): Promise<void> {
 		const file = this.app.vault.getAbstractFileByPath(task.filePath);
 		if (!(file instanceof TFile)) return;
+		this.invalidateCacheFor(task.filePath);
 		if (task.source === "file") {
 			// FileManager.trashFile() statt Vault.trash(), damit die Loeschung/System-Papierkorb-
 			// Einstellung des Nutzers ("Systemeinstellungen" vs. ".trash"-Ordner) respektiert wird.

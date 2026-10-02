@@ -150,6 +150,12 @@ export interface GtdBoardSettings {
 	collapsedProjects: string[];
 	/** Namen der Kontexte (oder "__no_context__"), die in der Kontexteansicht eingeklappt sind. */
 	collapsedContexts: string[];
+	/** Zuletzt aktiver View-Modus (board/agenda/week/projects/contexts), wird beim Oeffnen wiederhergestellt. */
+	lastViewMode: string;
+	/** Zuletzt aktiver @Kontext-Filter (ohne @), wird beim Oeffnen wiederhergestellt. */
+	lastContextFilter: string;
+	/** Zuletzt aktiver +Projekt-Filter (ohne +), wird beim Oeffnen wiederhergestellt. */
+	lastProjectFilter: string;
 }
 
 export const DEFAULT_LANES: LaneConfig[] = [
@@ -184,4 +190,7 @@ export const DEFAULT_SETTINGS: GtdBoardSettings = {
 	agendaFolder: "GTD/Agendas",
 	collapsedProjects: [],
 	collapsedContexts: [],
+	lastViewMode: "board",
+	lastContextFilter: "",
+	lastProjectFilter: "",
 };

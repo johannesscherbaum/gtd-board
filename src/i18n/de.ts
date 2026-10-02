@@ -252,6 +252,8 @@ export const de = {
 			empty: "Keine offenen Aufgaben.",
 			noProject: "Kein Projekt",
 			back: "Zurück",
+			close: "Projekt abschliessen (alle offenen Aufgaben auf Erledigt)",
+			confirmClose: "{count} offene Aufgabe(n) von \"{project}\" auf Erledigt verschieben?",
 		},
 		contexts: {
 			empty: "Keine offenen Aufgaben.",
@@ -287,6 +289,7 @@ export const de = {
 			staleSomedayTitle: "Seit laengerem nicht mehr durchgesehen - beim naechsten Wochenrueckblick pruefen.",
 			agendaPersonTitle: "Agendapunkt fuer {name}",
 			processTitle: "Verarbeiten (GTD: klaeren und einer Lane zuordnen)",
+			editDueTitle: "Klicken, um Faelligkeit direkt zu aendern",
 		},
 		contextMenu: {
 			edit: "Bearbeiten",

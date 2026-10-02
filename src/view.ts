@@ -82,6 +82,13 @@ export class GtdBoardView extends ItemView {
 	}
 
 	async onOpen(): Promise<void> {
+		const s = this.plugin.settings;
+		const validModes: ViewMode[] = ["board", "agenda", "week", "projects", "contexts"];
+		if (validModes.includes(s.lastViewMode as ViewMode)) {
+			this.viewMode = s.lastViewMode as ViewMode;
+		}
+		this.contextFilter = s.lastContextFilter ?? "";
+		this.projectFilter = s.lastProjectFilter ?? "";
 		this.renderShell();
 		await this.refresh();
 	}
@@ -221,6 +228,7 @@ export class GtdBoardView extends ItemView {
 		this.contextSelectEl.setAttribute("title", t("view.context.title"));
 		this.contextSelectEl.addEventListener("change", () => {
 			this.contextFilter = this.contextSelectEl.value;
+			void this.plugin.saveUiState({ lastContextFilter: this.contextFilter });
 			this.renderBoard();
 		});
 
@@ -230,6 +238,7 @@ export class GtdBoardView extends ItemView {
 		this.projectSelectEl.setAttribute("title", t("view.project.title"));
 		this.projectSelectEl.addEventListener("change", () => {
 			this.projectFilter = this.projectSelectEl.value;
+			void this.plugin.saveUiState({ lastProjectFilter: this.projectFilter });
 			this.renderBoard();
 		});
 
@@ -249,11 +258,10 @@ export class GtdBoardView extends ItemView {
 			if (prev === "projects" && this.viewMode !== "projects") {
 				this.detailProject = undefined;
 			}
-			// Sortier-Dropdown: sinnvoll im Kanban, in der Projekteansicht und in der Kontexteansicht;
-			// in Agenda und Woche ist die Sortierung fest (nach Faelligkeit bzw. Kalendertag).
 			this.sortSelectEl.toggle(
 				this.viewMode === "board" || this.viewMode === "projects" || this.viewMode === "contexts"
 			);
+			void this.plugin.saveUiState({ lastViewMode: this.viewMode });
 			this.renderBoard();
 		});
 
@@ -537,6 +545,15 @@ export class GtdBoardView extends ItemView {
 				evt.stopPropagation();
 				this.openCreateModalForProject(project);
 			});
+
+			const closeBtn = header.createEl("button", { cls: "gtd-project-section-close" });
+			setIcon(closeBtn, "check-circle");
+			closeBtn.setAttribute("aria-label", t("view.projects.close"));
+			closeBtn.setAttribute("title", t("view.projects.close"));
+			closeBtn.addEventListener("click", (evt) => {
+				evt.stopPropagation();
+				void this.closeProject(project);
+			});
 		}
 
 		if (!collapsed) {
@@ -560,6 +577,39 @@ export class GtdBoardView extends ItemView {
 		this.plugin.settings.collapsedProjects = Array.from(collapsed);
 		await this.plugin.saveSettings();
 		this.renderBoard();
+	}
+
+	/** Verschiebt alle offenen Aufgaben eines Projekts nach einer Bestaetigung in die Erledigt-Lane. */
+	private async closeProject(project: string | null): Promise<void> {
+		const doneLane = this.plugin.settings.lanes.find((l) => l.isDone);
+		if (!doneLane) {
+			new Notice(t("notice.noDoneLane"));
+			return;
+		}
+		const openTasks = this.tasks.filter(
+			(task) =>
+				!task.done &&
+				task.laneId !== AGENDA_LANE_ID &&
+				(project !== null ? task.project === project : !task.project)
+		);
+		if (openTasks.length === 0) return;
+		const projectLabel = project ?? t("view.projects.noProject");
+		const confirmed = await confirmDialog(
+			this.app,
+			t("view.projects.confirmClose", { count: openTasks.length, project: projectLabel })
+		);
+		if (!confirmed) return;
+		for (const task of openTasks) {
+			if (task.source === "file") {
+				await this.plugin.store.moveFileTask(task, doneLane.id);
+			} else {
+				await this.plugin.store.moveInlineTask(task, doneLane.id);
+			}
+		}
+		if (this.detailProject !== undefined) {
+			this.detailProject = undefined;
+		}
+		await this.refresh();
 	}
 
 	/** Oeffnet einen Erstellen-Dialog mit vorausgefuelltem Projekt (fuer "+" in der Projekteansicht). */
@@ -613,6 +663,12 @@ export class GtdBoardView extends ItemView {
 			cls: "gtd-project-detail-title",
 			text: project ? `+${project}` : t("view.projects.noProject"),
 		});
+
+		const closeBtn = header.createEl("button", { cls: "gtd-project-detail-close" });
+		setIcon(closeBtn, "check-circle");
+		closeBtn.setAttribute("aria-label", t("view.projects.close"));
+		closeBtn.setAttribute("title", t("view.projects.close"));
+		closeBtn.addEventListener("click", () => void this.closeProject(project));
 
 		const tasks = this.tasks
 			.filter((t) => t.laneId !== AGENDA_LANE_ID)
@@ -1022,7 +1078,13 @@ export class GtdBoardView extends ItemView {
 				},
 			});
 		}
-		titleRow.createSpan({ cls: "gtd-card-title", text: task.title });
+		const titleSpan = titleRow.createSpan({ cls: "gtd-card-title", text: task.title });
+		if (task.source === "file") {
+			titleSpan.addEventListener("click", (evt) => {
+				evt.stopPropagation();
+				this.startInlineTitleEdit(titleSpan, task);
+			});
+		}
 		if (task.source === "inline") {
 			titleRow.createSpan({ cls: "gtd-card-badge", text: t("view.card.inlineBadge") });
 		}
@@ -1042,7 +1104,9 @@ export class GtdBoardView extends ItemView {
 
 		if (task.due) {
 			const dueEl = card.createDiv({ cls: "gtd-card-due" });
-			dueEl.setText(`📅 ${task.due}`);
+			dueEl.setAttribute("title", task.source === "file" ? t("view.card.editDueTitle") : "");
+			if (task.source === "file") dueEl.addClass("gtd-card-due-editable");
+			dueEl.createSpan({ text: `📅 ${task.due}` });
 			if (!task.done) {
 				const urgency = dueUrgency(task.due);
 				if (urgency) dueEl.addClass(`gtd-card-due-${urgency}`);
@@ -1052,6 +1116,12 @@ export class GtdBoardView extends ItemView {
 					cls: "gtd-card-recurrence",
 					text: `🔁 ${recurrenceLabel(task.recurrence)}`,
 					attr: { title: t("view.card.recurrenceTitle") },
+				});
+			}
+			if (task.source === "file") {
+				dueEl.addEventListener("click", (evt) => {
+					evt.stopPropagation();
+					this.startInlineDueEdit(dueEl, task);
 				});
 			}
 		}
@@ -1171,6 +1241,82 @@ export class GtdBoardView extends ItemView {
 		card.addEventListener("contextmenu", (evt) => this.openContextMenu(evt, task));
 
 		return card;
+	}
+
+	private startInlineTitleEdit(span: HTMLElement, task: GtdTask): void {
+		const original = task.title;
+		const input = document.createElement("input");
+		input.type = "text";
+		input.value = original;
+		input.className = "gtd-card-title-input";
+		span.replaceWith(input);
+		input.focus();
+		input.select();
+
+		let committed = false;
+		const commit = async () => {
+			if (committed) return;
+			committed = true;
+			const newTitle = input.value.trim();
+			if (newTitle && newTitle !== original) {
+				await this.plugin.store.updateTaskFile(task, {
+					title: newTitle,
+					description: task.description,
+					due: task.due,
+					reminderAt: task.reminderAt,
+					priority: task.priority,
+					recurrence: task.recurrence,
+					contexts: task.contexts,
+					tags: task.tags,
+					delegatedTo: task.delegatedTo,
+					project: task.project,
+					person: task.person,
+				});
+				await this.refresh();
+			} else {
+				const restored = createSpan({ cls: "gtd-card-title", text: original });
+				restored.addEventListener("click", (evt) => { evt.stopPropagation(); this.startInlineTitleEdit(restored, task); });
+				input.replaceWith(restored);
+			}
+		};
+		input.addEventListener("blur", () => void commit());
+		input.addEventListener("keydown", (evt) => {
+			if (evt.key === "Enter") { evt.preventDefault(); void commit(); }
+			if (evt.key === "Escape") {
+				committed = true;
+				const restored = createSpan({ cls: "gtd-card-title", text: original });
+				restored.addEventListener("click", (e) => { e.stopPropagation(); this.startInlineTitleEdit(restored, task); });
+				input.replaceWith(restored);
+			}
+		});
+	}
+
+	private startInlineDueEdit(dueEl: HTMLElement, task: GtdTask): void {
+		const originalDue = task.due?.slice(0, 10) ?? "";
+		const input = document.createElement("input");
+		input.type = "date";
+		input.value = originalDue;
+		input.className = "gtd-card-due-input";
+		dueEl.empty();
+		dueEl.appendChild(input);
+		input.focus();
+		input.showPicker?.();
+
+		let committed = false;
+		const commit = async () => {
+			if (committed) return;
+			committed = true;
+			const newDue = input.value;
+			if (newDue !== originalDue) {
+				await this.plugin.store.patchFileTaskDue(task, newDue || undefined);
+			}
+			await this.refresh();
+		};
+		input.addEventListener("change", () => void commit());
+		input.addEventListener("blur", () => void commit());
+		input.addEventListener("keydown", (evt) => {
+			if (evt.key === "Escape") { committed = true; void this.refresh(); }
+		});
 	}
 
 	private openContextMenu(evt: MouseEvent, task: GtdTask): void {

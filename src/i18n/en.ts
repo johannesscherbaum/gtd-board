@@ -251,6 +251,8 @@ export const en = {
 			empty: "No open tasks.",
 			noProject: "No project",
 			back: "Back",
+			close: "Close project (move all open tasks to Done)",
+			confirmClose: "Move {count} open task(s) of \"{project}\" to Done?",
 		},
 		contexts: {
 			empty: "No open tasks.",
@@ -286,6 +288,7 @@ export const en = {
 			staleSomedayTitle: "Not reviewed for a while - check at the next weekly review.",
 			agendaPersonTitle: "Agenda item for {name}",
 			processTitle: "Process (GTD: clarify & assign to lane)",
+			editDueTitle: "Click to edit due date",
 		},
 		contextMenu: {
 			edit: "Edit",
