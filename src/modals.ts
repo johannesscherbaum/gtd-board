@@ -154,15 +154,41 @@ export class TaskModal extends Modal {
 		textarea.rows = 8;
 		const preview = editorWrap.createDiv({ cls: "gtd-description-preview" });
 
-		const renderPreview = () => {
+		const renderPreview = async () => {
 			preview.empty();
-			void MarkdownRenderer.render(
+			// Leerer Quellpfad: Obsidian soll keine Checkboxen per File-Handler verdrahten.
+			// Wuerden wir task.filePath uebergeben, versuchte Obsidian die Zeilen direkt in
+			// der Datei zu aendern - mit falschem Offset, weil hier nur der Body (ohne
+			// Frontmatter) uebergeben wird. Das fuehrt dazu, dass Haken ins Frontmatter
+			// geschrieben werden und anschliessend durch "Speichern" (das this.description
+			// aus dem Modal-Oeffnungszeitpunkt schreibt) wieder ueberschrieben werden.
+			await MarkdownRenderer.render(
 				this.app,
 				this.description || t("taskModal.noDescription"),
 				preview,
-				this.options.task?.filePath ?? "",
+				"",
 				this.previewComponent
 			);
+			// Eigene Checkbox-Handler: Haken-Klicks togglen this.description in-memory
+			// und fuehren die Textarea mit, damit "Speichern" den richtigen Stand hat.
+			const checkboxEls = Array.from(preview.querySelectorAll<HTMLInputElement>("input[type=checkbox]"));
+			checkboxEls.forEach((cb, idx) => {
+				// Klon entfernt etwaige Obsidian-Handler, die trotz leerem Quellpfad gesetzt wurden.
+				const clone = cb.cloneNode(true) as HTMLInputElement;
+				cb.replaceWith(clone);
+				clone.addEventListener("change", () => {
+					let count = 0;
+					this.description = this.description.split(/\r?\n/).map((line) => {
+						if (/^\s*[-*+]\s*\[[ xX]\]/.test(line)) {
+							if (count++ === idx) {
+								return line.replace(/\[[ xX]\]/, clone.checked ? "[x]" : "[ ]");
+							}
+						}
+						return line;
+					}).join("\n");
+					textarea.value = this.description;
+				});
+			});
 		};
 		textarea.addEventListener("input", () => {
 			this.description = textarea.value;
@@ -172,7 +198,7 @@ export class TaskModal extends Modal {
 		// gerenderte Vorschau ansehen (wird beim Umschalten dorthin jeweils neu aufgebaut).
 		const updateDescriptionView = () => {
 			if (this.descriptionShowingPreview) {
-				renderPreview();
+				void renderPreview();
 				textarea.setCssStyles({ display: "none" });
 				preview.setCssStyles({ display: "" });
 				descToggleButton.setButtonText(t("taskModal.editButton"));

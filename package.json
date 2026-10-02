@@ -1,6 +1,6 @@
 {
   "name": "gtd-board",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "GTD Kanban board plugin for Obsidian",
   "main": "main.js",
   "scripts": {
