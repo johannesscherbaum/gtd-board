@@ -1,4 +1,4 @@
-import { App, Component, ConfirmationModal, MarkdownRenderer, Modal, Notice, Setting, TFolder, normalizePath } from "obsidian";
+import { App, ButtonComponent, Component, ConfirmationModal, MarkdownRenderer, Modal, Notice, Setting, TFolder, normalizePath } from "obsidian";
 import type GtdBoardPlugin from "./main";
 import { GtdTask, LaneConfig, RecurrenceRule, TaskPriority } from "./types";
 import {
@@ -64,6 +64,7 @@ export class TaskModal extends Modal {
 	private visibleFrom: string;
 	private revisitOn: string;
 	private previewComponent = new Component();
+	private descriptionShowingPreview = true;
 
 	constructor(app: App, private plugin: GtdBoardPlugin, private options: TaskModalOptions) {
 		super(app);
@@ -133,17 +134,24 @@ export class TaskModal extends Modal {
 			window.setTimeout(() => text.inputEl.focus(), 0);
 		});
 
+		let descToggleButton: ButtonComponent;
 		new Setting(contentEl)
 			.setName(t("taskModal.description"))
-			.setClass("gtd-modal-description-setting");
+			.setClass("gtd-modal-description-setting")
+			.addButton((btn) => {
+				descToggleButton = btn;
+				btn.onClick(() => {
+					this.descriptionShowingPreview = !this.descriptionShowingPreview;
+					updateDescriptionView();
+				});
+			});
 
 		const editorWrap = contentEl.createDiv({ cls: "gtd-description-editor" });
 		const toolbar = editorWrap.createDiv({ cls: "gtd-wysiwyg-toolbar" });
-		const splitEl = editorWrap.createDiv({ cls: "gtd-wysiwyg-split" });
-		const textarea = splitEl.createEl("textarea", { cls: "gtd-description-textarea" });
+		const textarea = editorWrap.createEl("textarea", { cls: "gtd-description-textarea" });
 		textarea.value = this.description;
 		textarea.rows = 8;
-		const preview = splitEl.createDiv({ cls: "gtd-description-preview" });
+		const preview = editorWrap.createDiv({ cls: "gtd-description-preview" });
 
 		const renderPreview = async () => {
 			preview.empty();
@@ -169,15 +177,16 @@ export class TaskModal extends Modal {
 						return line;
 					}).join("\n");
 					textarea.value = this.description;
+					if (this.options.mode === "edit" && this.options.task?.source === "file") {
+						void this.plugin.store.patchFileTaskBody(this.options.task, this.description)
+							.then(() => void this.plugin.refreshBoardViews());
+					}
 				});
 			});
 		};
 
-		let previewTimer: number | undefined;
 		textarea.addEventListener("input", () => {
 			this.description = textarea.value;
-			clearTimeout(previewTimer);
-			previewTimer = window.setTimeout(() => void renderPreview(), 200);
 		});
 
 		const wrapSelection = (before: string, after: string) => {
@@ -187,7 +196,6 @@ export class TaskModal extends Modal {
 			textarea.setRangeText(before + selected + after, start, end, "select");
 			this.description = textarea.value;
 			textarea.focus();
-			void renderPreview();
 		};
 
 		const prependLines = (prefix: string) => {
@@ -202,7 +210,6 @@ export class TaskModal extends Modal {
 			textarea.setRangeText(prefixed, lineStart, blockEnd, "end");
 			this.description = textarea.value;
 			textarea.focus();
-			void renderPreview();
 		};
 
 		const addToolbarBtn = (label: string, title: string, action: () => void) => {
@@ -210,7 +217,7 @@ export class TaskModal extends Modal {
 			btn.title = title;
 			btn.type = "button";
 			btn.addEventListener("mousedown", (e) => {
-				e.preventDefault(); // Preserve textarea selection when clicking toolbar
+				e.preventDefault();
 				action();
 			});
 		};
@@ -222,7 +229,22 @@ export class TaskModal extends Modal {
 		addToolbarBtn("—", t("taskModal.toolbarBullet"), () => prependLines("- "));
 		addToolbarBtn("☐", t("taskModal.toolbarTask"), () => prependLines("- [ ] "));
 
-		void renderPreview();
+		const updateDescriptionView = () => {
+			if (this.descriptionShowingPreview) {
+				void renderPreview();
+				textarea.setCssStyles({ display: "none" });
+				toolbar.setCssStyles({ display: "none" });
+				preview.setCssStyles({ display: "" });
+				descToggleButton.setButtonText(t("taskModal.editButton"));
+			} else {
+				textarea.setCssStyles({ display: "" });
+				toolbar.setCssStyles({ display: "" });
+				preview.setCssStyles({ display: "none" });
+				descToggleButton.setButtonText(t("taskModal.previewButton"));
+				window.setTimeout(() => textarea.focus(), 0);
+			}
+		};
+		updateDescriptionView();
 
 		new Setting(contentEl)
 			.setName(t("taskModal.dueDate"))

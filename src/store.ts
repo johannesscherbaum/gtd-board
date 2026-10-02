@@ -417,6 +417,17 @@ export class GtdStore {
 		this.invalidateCacheFor(file.path);
 	}
 
+	/** Aktualisiert nur den Body (Beschreibung) einer Datei-Aufgabe, ohne Frontmatter anzufassen. */
+	async patchFileTaskBody(task: GtdTask, body: string): Promise<void> {
+		const file = this.app.vault.getAbstractFileByPath(task.filePath);
+		if (!(file instanceof TFile)) return;
+		const content = await this.app.vault.read(file);
+		const { frontmatter } = parseTaskFile(content);
+		const newContent = buildTaskFileContent(frontmatter, body);
+		await this.app.vault.modify(file, newContent);
+		this.invalidateCacheFor(file.path);
+	}
+
 	/**
 	 * Setzt die Lane einer Datei-Aufgabe neu, z.B. bei Drag & Drop.
 	 * Ziel "Erledigt": nur done:true setzen, die Herkunfts-Lane bleibt im Frontmatter erhalten

@@ -26,6 +26,8 @@ export const en = {
 		title: "Title",
 		description: "Description",
 		noDescription: "*No description*",
+		editButton: "Markdown",
+		previewButton: "Preview",
 		toolbarBold: "Bold",
 		toolbarItalic: "Italic",
 		toolbarStrike: "Strikethrough",

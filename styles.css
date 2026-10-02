@@ -940,20 +940,13 @@
 	border-color: var(--interactive-accent);
 }
 
-.gtd-wysiwyg-split {
-	display: flex;
-	gap: 10px;
-}
-
 .gtd-description-textarea {
-	flex: 1;
 	min-height: 160px;
 	resize: vertical;
 	font-family: var(--font-monospace);
 }
 
 .gtd-description-preview {
-	flex: 1;
 	min-height: 160px;
 	overflow-y: auto;
 	border: 1px solid var(--background-modifier-border);

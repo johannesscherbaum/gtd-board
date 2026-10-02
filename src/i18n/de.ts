@@ -26,6 +26,8 @@ export const de = {
 		title: "Titel",
 		description: "Beschreibung",
 		noDescription: "*Keine Beschreibung*",
+		editButton: "Markdown",
+		previewButton: "Vorschau",
 		toolbarBold: "Fett",
 		toolbarItalic: "Kursiv",
 		toolbarStrike: "Durchgestrichen",
