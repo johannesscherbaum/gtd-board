@@ -1,4 +1,4 @@
-import { App, ButtonComponent, Component, ConfirmationModal, MarkdownRenderer, Modal, Notice, Setting, TFolder, normalizePath } from "obsidian";
+import { App, Component, ConfirmationModal, MarkdownRenderer, Modal, Notice, Setting, TFolder, normalizePath } from "obsidian";
 import type GtdBoardPlugin from "./main";
 import { GtdTask, LaneConfig, RecurrenceRule, TaskPriority } from "./types";
 import {
@@ -64,8 +64,6 @@ export class TaskModal extends Modal {
 	private visibleFrom: string;
 	private revisitOn: string;
 	private previewComponent = new Component();
-	/** Steuert, ob im Beschreibungs-Editor Markdown-Quelltext oder die gerenderte Vorschau angezeigt wird. */
-	private descriptionShowingPreview = false;
 
 	constructor(app: App, private plugin: GtdBoardPlugin, private options: TaskModalOptions) {
 		super(app);
@@ -135,33 +133,20 @@ export class TaskModal extends Modal {
 			window.setTimeout(() => text.inputEl.focus(), 0);
 		});
 
-		let descToggleButton: ButtonComponent;
 		new Setting(contentEl)
 			.setName(t("taskModal.description"))
-			.setDesc(t("taskModal.descriptionDesc"))
-			.setClass("gtd-modal-description-setting")
-			.addButton((btn) => {
-				descToggleButton = btn;
-				btn.onClick(() => {
-					this.descriptionShowingPreview = !this.descriptionShowingPreview;
-					updateDescriptionView();
-				});
-			});
+			.setClass("gtd-modal-description-setting");
 
 		const editorWrap = contentEl.createDiv({ cls: "gtd-description-editor" });
-		const textarea = editorWrap.createEl("textarea", { cls: "gtd-description-textarea" });
+		const toolbar = editorWrap.createDiv({ cls: "gtd-wysiwyg-toolbar" });
+		const splitEl = editorWrap.createDiv({ cls: "gtd-wysiwyg-split" });
+		const textarea = splitEl.createEl("textarea", { cls: "gtd-description-textarea" });
 		textarea.value = this.description;
 		textarea.rows = 8;
-		const preview = editorWrap.createDiv({ cls: "gtd-description-preview" });
+		const preview = splitEl.createDiv({ cls: "gtd-description-preview" });
 
 		const renderPreview = async () => {
 			preview.empty();
-			// Leerer Quellpfad: Obsidian soll keine Checkboxen per File-Handler verdrahten.
-			// Wuerden wir task.filePath uebergeben, versuchte Obsidian die Zeilen direkt in
-			// der Datei zu aendern - mit falschem Offset, weil hier nur der Body (ohne
-			// Frontmatter) uebergeben wird. Das fuehrt dazu, dass Haken ins Frontmatter
-			// geschrieben werden und anschliessend durch "Speichern" (das this.description
-			// aus dem Modal-Oeffnungszeitpunkt schreibt) wieder ueberschrieben werden.
 			await MarkdownRenderer.render(
 				this.app,
 				this.description || t("taskModal.noDescription"),
@@ -169,11 +154,8 @@ export class TaskModal extends Modal {
 				"",
 				this.previewComponent
 			);
-			// Eigene Checkbox-Handler: Haken-Klicks togglen this.description in-memory
-			// und fuehren die Textarea mit, damit "Speichern" den richtigen Stand hat.
 			const checkboxEls = Array.from(preview.querySelectorAll<HTMLInputElement>("input[type=checkbox]"));
 			checkboxEls.forEach((cb, idx) => {
-				// Klon entfernt etwaige Obsidian-Handler, die trotz leerem Quellpfad gesetzt wurden.
 				const clone = cb.cloneNode(true) as HTMLInputElement;
 				cb.replaceWith(clone);
 				clone.addEventListener("change", () => {
@@ -190,25 +172,57 @@ export class TaskModal extends Modal {
 				});
 			});
 		};
+
+		let previewTimer: number | undefined;
 		textarea.addEventListener("input", () => {
 			this.description = textarea.value;
+			clearTimeout(previewTimer);
+			previewTimer = window.setTimeout(() => void renderPreview(), 200);
 		});
 
-		// Umschalten statt Nebeneinander: entweder Markdown-Quelltext bearbeiten oder die
-		// gerenderte Vorschau ansehen (wird beim Umschalten dorthin jeweils neu aufgebaut).
-		const updateDescriptionView = () => {
-			if (this.descriptionShowingPreview) {
-				void renderPreview();
-				textarea.setCssStyles({ display: "none" });
-				preview.setCssStyles({ display: "" });
-				descToggleButton.setButtonText(t("taskModal.editButton"));
-			} else {
-				textarea.setCssStyles({ display: "" });
-				preview.setCssStyles({ display: "none" });
-				descToggleButton.setButtonText(t("taskModal.previewButton"));
-			}
+		const wrapSelection = (before: string, after: string) => {
+			const start = textarea.selectionStart;
+			const end = textarea.selectionEnd;
+			const selected = textarea.value.slice(start, end);
+			textarea.setRangeText(before + selected + after, start, end, "select");
+			this.description = textarea.value;
+			textarea.focus();
+			void renderPreview();
 		};
-		updateDescriptionView();
+
+		const prependLines = (prefix: string) => {
+			const val = textarea.value;
+			const start = textarea.selectionStart;
+			const end = textarea.selectionEnd;
+			const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+			const lineEndIdx = val.indexOf("\n", end);
+			const blockEnd = lineEndIdx === -1 ? val.length : lineEndIdx;
+			const block = val.slice(lineStart, blockEnd);
+			const prefixed = block.split("\n").map((l) => prefix + l).join("\n");
+			textarea.setRangeText(prefixed, lineStart, blockEnd, "end");
+			this.description = textarea.value;
+			textarea.focus();
+			void renderPreview();
+		};
+
+		const addToolbarBtn = (label: string, title: string, action: () => void) => {
+			const btn = toolbar.createEl("button", { cls: "gtd-wysiwyg-btn", text: label });
+			btn.title = title;
+			btn.type = "button";
+			btn.addEventListener("mousedown", (e) => {
+				e.preventDefault(); // Preserve textarea selection when clicking toolbar
+				action();
+			});
+		};
+
+		addToolbarBtn("B", t("taskModal.toolbarBold"), () => wrapSelection("**", "**"));
+		addToolbarBtn("I", t("taskModal.toolbarItalic"), () => wrapSelection("*", "*"));
+		addToolbarBtn("S", t("taskModal.toolbarStrike"), () => wrapSelection("~~", "~~"));
+		addToolbarBtn("`", t("taskModal.toolbarCode"), () => wrapSelection("`", "`"));
+		addToolbarBtn("—", t("taskModal.toolbarBullet"), () => prependLines("- "));
+		addToolbarBtn("☐", t("taskModal.toolbarTask"), () => prependLines("- [ ] "));
+
+		void renderPreview();
 
 		new Setting(contentEl)
 			.setName(t("taskModal.dueDate"))

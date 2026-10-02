@@ -910,8 +910,39 @@
 
 .gtd-description-editor {
 	display: flex;
-	gap: 10px;
+	flex-direction: column;
+	gap: 6px;
 	margin: 6px 0 12px 0;
+}
+
+.gtd-wysiwyg-toolbar {
+	display: flex;
+	gap: 3px;
+	flex-wrap: wrap;
+}
+
+.gtd-wysiwyg-btn {
+	background: var(--background-modifier-form-field);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 3px;
+	color: var(--text-normal);
+	cursor: pointer;
+	font-size: 0.8em;
+	font-weight: 600;
+	line-height: 1;
+	min-width: 28px;
+	padding: 3px 7px;
+	text-align: center;
+}
+
+.gtd-wysiwyg-btn:hover {
+	background: var(--background-modifier-hover);
+	border-color: var(--interactive-accent);
+}
+
+.gtd-wysiwyg-split {
+	display: flex;
+	gap: 10px;
 }
 
 .gtd-description-textarea {
