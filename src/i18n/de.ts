@@ -156,6 +156,11 @@ export const de = {
 			placeholder: "GTD/Termine.ics",
 		},
 		exportNow: "Jetzt exportieren",
+		projectRootFolder: {
+			name: "Projektwurzel-Ordner",
+			desc: "Ordner, dessen unmittelbare Unterordner als Projektnamen gelten (z. B. 'Projects'). Wenn gesetzt, wird das Projekt fuer jede Aufgabe daraus abgeleitet – unabhaengig davon, ob sie eine Datei-Aufgabe oder eine Inline-Checkbox ist. Leer = Ableitung relativ zu Aufgaben-Ordner bzw. Ordner (bisheriges Verhalten).",
+			placeholder: "z. B. Projects",
+		},
 		agendaHeading: "Agendas",
 		agendaEnable: {
 			name: "Agendas-Lane anzeigen",

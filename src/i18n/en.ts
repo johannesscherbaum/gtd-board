@@ -155,6 +155,11 @@ export const en = {
 			placeholder: "GTD/Events.ics",
 		},
 		exportNow: "Export now",
+		projectRootFolder: {
+			name: "Project root folder",
+			desc: "Folder whose immediate subfolders serve as project names (e.g. 'Projects'). When set, the project is derived from this folder for every task — file tasks and inline checkboxes alike. Empty = derive relative to task folder / watch folder (existing behaviour).",
+			placeholder: "e.g. Projects",
+		},
 		agendaHeading: "Agendas",
 		agendaEnable: {
 			name: "Show agendas lane",

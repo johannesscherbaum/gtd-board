@@ -181,6 +181,9 @@ export default class GtdBoardPlugin extends Plugin {
 		if (typeof this.settings.autoPromoteInboxOnDueDate !== "boolean") {
 			this.settings.autoPromoteInboxOnDueDate = DEFAULT_SETTINGS.autoPromoteInboxOnDueDate;
 		}
+		if (typeof this.settings.projectRootFolder !== "string") {
+			this.settings.projectRootFolder = DEFAULT_SETTINGS.projectRootFolder;
+		}
 		if (typeof this.settings.agendaEnabled !== "boolean") {
 			this.settings.agendaEnabled = DEFAULT_SETTINGS.agendaEnabled;
 		}

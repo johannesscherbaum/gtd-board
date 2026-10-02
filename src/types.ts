@@ -136,6 +136,12 @@ export interface GtdBoardSettings {
 	 * in die als isNextActions markierte Lane befoerdern (statt in der Eingang-Lane liegen zu bleiben).
 	 */
 	autoPromoteInboxOnDueDate: boolean;
+	/**
+	 * Wurzelordner fuer die automatische Projekt-Ableitung. Wenn gesetzt, wird fuer jede Aufgabe
+	 * (Datei- und Inline) der unmittelbare Unterordner relativ zu diesem Pfad als Projekt verwendet,
+	 * statt relativ zu taskFilesFolder / watchFolder. Leer = bisheriges Verhalten.
+	 */
+	projectRootFolder: string;
 	/** Agendas-Lane auf dem Board anzeigen. */
 	agendaEnabled: boolean;
 	/** Ordner (im Vault), aus dem Agenda-Eintraege gelesen werden. */
@@ -171,6 +177,7 @@ export const DEFAULT_SETTINGS: GtdBoardSettings = {
 	delegateFollowUpDays: 5,
 	somedayRefreshDays: 60,
 	autoPromoteInboxOnDueDate: true,
+	projectRootFolder: "",
 	agendaEnabled: false,
 	agendaFolder: "GTD/Agendas",
 	collapsedProjects: [],

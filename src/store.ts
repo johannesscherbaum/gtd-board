@@ -110,13 +110,15 @@ export class GtdStore {
 		const done = frontmatter.done === true || frontmatter.done === "true";
 		const id = fileTaskId(file.path);
 		// Explizit gesetztes Projekt hat immer Vorrang; nur wenn kein Projekt vorhanden ist,
-		// wird es aus dem unmittelbaren Unterordner relativ zum taskFilesFolder abgeleitet.
+		// wird es aus dem Ordnerpfad abgeleitet. projectRootFolder (wenn gesetzt) ueberschreibt
+		// den Standard-Ableitungs-Root (taskFilesFolder).
 		const explicitProject =
 			typeof frontmatter.project === "string" && frontmatter.project.trim().length > 0
 				? frontmatter.project.trim()
 				: undefined;
+		const projectRoot = this.settings.projectRootFolder?.trim() || this.settings.taskFilesFolder;
 		const project = explicitProject
-			?? (!isAgendaFile ? deriveProjectFromPath(file.path, this.settings.taskFilesFolder) : undefined);
+			?? (!isAgendaFile ? deriveProjectFromPath(file.path, projectRoot) : undefined);
 		return {
 			id,
 			source: "file",
@@ -155,7 +157,9 @@ export class GtdStore {
 		const lines = content.split(/\r?\n/);
 		const tasks: GtdTask[] = [];
 		// Ableitbares Projekt einmalig pro Datei berechnen (alle Inline-Aufgaben teilen denselben Pfad).
-		const derivedProject = deriveProjectFromPath(file.path, this.settings.watchFolder);
+		// projectRootFolder (wenn gesetzt) ueberschreibt den Standard-Root watchFolder.
+		const inlineProjectRoot = this.settings.projectRootFolder?.trim() || this.settings.watchFolder;
+		const derivedProject = deriveProjectFromPath(file.path, inlineProjectRoot);
 		lines.forEach((line, index) => {
 			const parsed = parseInlineLine(line, this.settings.lanes);
 			if (!parsed || parsed.title.length === 0) return;

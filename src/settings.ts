@@ -64,6 +64,22 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 						},
 					},
 					{
+						name: t("settings.projectRootFolder.name"),
+						desc: t("settings.projectRootFolder.desc"),
+						render: (setting) => {
+							setting.addText((text) =>
+								text
+									.setPlaceholder(t("settings.projectRootFolder.placeholder"))
+									.setValue(settings.projectRootFolder)
+									.onChange(async (value) => {
+										settings.projectRootFolder = value.trim();
+										await this.plugin.saveSettings();
+										await this.plugin.refreshBoardViews();
+									})
+							);
+						},
+					},
+					{
 						name: t("settings.inlineCheckboxes.name"),
 						desc: t("settings.inlineCheckboxes.desc"),
 						render: (setting) => {
