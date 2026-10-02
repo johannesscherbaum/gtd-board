@@ -42,6 +42,9 @@ export const en = {
 		project: "Project",
 		projectDesc:
 			"Free-form project (GTD project list), independent of lane and context. Leave empty if the task belongs to no project.",
+		projectDescFromFolder:
+			"Project from \"{folder}\" (choose a subfolder). Determines where the task file is saved.",
+		projectNone: "— No project —",
 		projectPlaceholder: "e.g. SAP transformation",
 		delegatedTo: "Delegated to",
 		delegatedToDesc: 'Name of the person this task was delegated to (e.g. for "Waiting for"). Leave empty if not delegated.',

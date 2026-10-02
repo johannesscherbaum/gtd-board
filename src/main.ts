@@ -93,7 +93,9 @@ export default class GtdBoardPlugin extends Plugin {
 					file instanceof TFile &&
 					(isPathInFolder(file.path, this.settings.watchFolder) ||
 						(this.settings.agendaEnabled &&
-							isPathInFolder(file.path, this.settings.agendaFolder)))
+							isPathInFolder(file.path, this.settings.agendaFolder)) ||
+						(this.settings.projectRootFolder?.trim() &&
+							isPathInFolder(file.path, this.settings.projectRootFolder.trim())))
 				) {
 					this.debouncedRefresh();
 				}
@@ -105,7 +107,9 @@ export default class GtdBoardPlugin extends Plugin {
 					file instanceof TFile &&
 					(isPathInFolder(file.path, this.settings.watchFolder) ||
 						(this.settings.agendaEnabled &&
-							isPathInFolder(file.path, this.settings.agendaFolder)))
+							isPathInFolder(file.path, this.settings.agendaFolder)) ||
+						(this.settings.projectRootFolder?.trim() &&
+							isPathInFolder(file.path, this.settings.projectRootFolder.trim())))
 				) {
 					this.debouncedRefresh();
 				}
@@ -116,7 +120,9 @@ export default class GtdBoardPlugin extends Plugin {
 				if (
 					isPathInFolder(file.path, this.settings.watchFolder) ||
 					(this.settings.agendaEnabled &&
-						isPathInFolder(file.path, this.settings.agendaFolder))
+						isPathInFolder(file.path, this.settings.agendaFolder)) ||
+					(this.settings.projectRootFolder?.trim() &&
+						isPathInFolder(file.path, this.settings.projectRootFolder.trim()))
 				) {
 					this.debouncedRefresh();
 				}
@@ -129,7 +135,10 @@ export default class GtdBoardPlugin extends Plugin {
 					isPathInFolder(oldPath, this.settings.watchFolder) ||
 					(this.settings.agendaEnabled &&
 						(isPathInFolder(file.path, this.settings.agendaFolder) ||
-							isPathInFolder(oldPath, this.settings.agendaFolder)))
+							isPathInFolder(oldPath, this.settings.agendaFolder))) ||
+					(this.settings.projectRootFolder?.trim() &&
+						(isPathInFolder(file.path, this.settings.projectRootFolder.trim()) ||
+							isPathInFolder(oldPath, this.settings.projectRootFolder.trim())))
 				) {
 					this.debouncedRefresh();
 				}

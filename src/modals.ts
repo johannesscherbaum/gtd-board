@@ -1,4 +1,4 @@
-import { App, ButtonComponent, Component, ConfirmationModal, MarkdownRenderer, Modal, Notice, Setting } from "obsidian";
+import { App, ButtonComponent, Component, ConfirmationModal, MarkdownRenderer, Modal, Notice, Setting, TFolder, normalizePath } from "obsidian";
 import type GtdBoardPlugin from "./main";
 import { GtdTask, LaneConfig, RecurrenceRule, TaskPriority } from "./types";
 import {
@@ -21,6 +21,8 @@ export interface TaskModalResult {
 	tags: string[];
 	delegatedTo?: string;
 	project?: string;
+	/** Vault path of the target project folder (set when projectRootFolder is configured and a folder-project was chosen). */
+	projectFolder?: string;
 	person?: string;
 }
 
@@ -53,6 +55,7 @@ export class TaskModal extends Modal {
 	private tags: string;
 	private delegatedTo: string;
 	private project: string;
+	private projectFolder: string | undefined = undefined;
 	private person: string;
 	private previewComponent = new Component();
 	/** Steuert, ob im Beschreibungs-Editor Markdown-Quelltext oder die gerenderte Vorschau angezeigt wird. */
@@ -234,12 +237,36 @@ export class TaskModal extends Modal {
 				dropdown.setValue(this.priority).onChange((v) => (this.priority = v as TaskPriority));
 			});
 
-		new Setting(contentEl)
-			.setName(t("taskModal.project"))
-			.setDesc(t("taskModal.projectDesc"))
-			.addText((text) => {
+		const projectSetting = new Setting(contentEl).setName(t("taskModal.project"));
+		const projectRootFolder = this.plugin.settings.projectRootFolder?.trim();
+		const projectFolders = projectRootFolder ? this.getProjectFolders(projectRootFolder) : [];
+		if (projectRootFolder && projectFolders.length > 0) {
+			projectSetting.setDesc(t("taskModal.projectDescFromFolder", { folder: projectRootFolder }));
+			projectSetting.addDropdown((dropdown) => {
+				dropdown.addOption("", t("taskModal.projectNone"));
+				for (const name of projectFolders) {
+					dropdown.addOption(name, name);
+				}
+				if (this.project && !projectFolders.includes(this.project)) {
+					dropdown.addOption(this.project, this.project);
+				}
+				dropdown.setValue(this.project);
+				if (this.project && projectFolders.includes(this.project)) {
+					this.projectFolder = normalizePath(`${projectRootFolder}/${this.project}`);
+				}
+				dropdown.onChange((v) => {
+					this.project = v;
+					this.projectFolder = v && projectFolders.includes(v)
+						? normalizePath(`${projectRootFolder}/${v}`)
+						: undefined;
+				});
+			});
+		} else {
+			projectSetting.setDesc(t("taskModal.projectDesc"));
+			projectSetting.addText((text) => {
 				text.setPlaceholder(t("taskModal.projectPlaceholder")).setValue(this.project).onChange((v) => (this.project = v));
 			});
+		}
 
 		if (this.options.showPersonField) {
 			new Setting(contentEl)
@@ -307,9 +334,19 @@ export class TaskModal extends Modal {
 			tags,
 			delegatedTo: this.delegatedTo.trim() || undefined,
 			project: this.project.trim() || undefined,
+			projectFolder: this.projectFolder,
 			person: this.options.showPersonField ? (this.person.trim() || undefined) : undefined,
 		});
 		this.close();
+	}
+
+	private getProjectFolders(rootPath: string): string[] {
+		const folder = this.app.vault.getAbstractFileByPath(normalizePath(rootPath));
+		if (!(folder instanceof TFolder)) return [];
+		return folder.children
+			.filter((child): child is TFolder => child instanceof TFolder)
+			.map((child) => child.name)
+			.sort((a, b) => a.localeCompare(b));
 	}
 
 	onClose(): void {
@@ -410,6 +447,14 @@ export class QuickCaptureModal extends Modal {
 				this.plugin.settings.lanes,
 				this.plugin.settings.autoPromoteInboxOnDueDate
 			) ?? laneId;
+		let targetFolder: string | undefined;
+		const projectRoot = this.plugin.settings.projectRootFolder?.trim();
+		if (projectRoot && parsed?.project) {
+			const folderPath = normalizePath(`${projectRoot}/${parsed.project}`);
+			if (this.app.vault.getAbstractFileByPath(folderPath) instanceof TFolder) {
+				targetFolder = folderPath;
+			}
+		}
 		await this.plugin.store.createTaskFile({
 			laneId: targetLaneId,
 			title,
@@ -420,6 +465,7 @@ export class QuickCaptureModal extends Modal {
 			delegatedTo: parsed?.delegatedTo,
 			project: parsed?.project,
 			due: parsed?.due,
+			targetFolder,
 		});
 		await this.plugin.refreshBoardViews();
 		new Notice(t("quickCapture.captured", { title }));

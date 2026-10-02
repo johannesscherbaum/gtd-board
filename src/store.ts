@@ -49,6 +49,9 @@ export class GtdStore {
 		const agendaFolder = agendaEnabled && this.settings.agendaFolder
 			? normalizePath(this.settings.agendaFolder)
 			: "";
+		const projectRootFolder = this.settings.projectRootFolder?.trim()
+			? normalizePath(this.settings.projectRootFolder.trim())
+			: "";
 
 		for (const file of files) {
 			// Archivierte Aufgaben sind bewusst kein Teil des Boards mehr.
@@ -59,6 +62,17 @@ export class GtdStore {
 				const task = await this.readFileTask(file);
 				if (task) tasks.push(task);
 				continue;
+			}
+
+			// Aufgaben-Dateien in Projekt-Unterordnern: Dateien mit lane:-Frontmatter
+			// werden als Datei-Aufgaben gelesen; Dateien ohne lane: fallen durch und
+			// koennen ggf. noch als Inline-Aufgaben-Quelle gescannt werden.
+			if (projectRootFolder && isPathInFolder(file.path, projectRootFolder)) {
+				const task = await this.readFileTask(file);
+				if (task) {
+					tasks.push(task);
+					continue;
+				}
 			}
 
 			if (agendaFolder && isPathInFolder(file.path, agendaFolder)) {
@@ -207,18 +221,21 @@ export class GtdStore {
 		project?: string;
 		due?: string;
 		reminderAt?: string;
+		/** Optionaler Zielordner; ueberschreibt taskFilesFolder (z. B. fuer Projekt-Unterordner). */
+		targetFolder?: string;
 	}): Promise<TFile> {
-		const { laneId, title, description, priority, contexts, tags, recurrence, delegatedTo, project, due, reminderAt } =
+		const { laneId, title, description, priority, contexts, tags, recurrence, delegatedTo, project, due, reminderAt, targetFolder } =
 			options;
-		await this.ensureFolder(this.settings.taskFilesFolder);
+		const destFolder = normalizePath(targetFolder ?? this.settings.taskFilesFolder);
+		await this.ensureFolder(destFolder);
 		const baseName = sanitizeFileName(title);
 		let fileName = `${baseName}.md`;
 		let counter = 2;
-		while (this.app.vault.getAbstractFileByPath(joinPath(this.settings.taskFilesFolder, fileName))) {
+		while (this.app.vault.getAbstractFileByPath(joinPath(destFolder, fileName))) {
 			fileName = `${baseName} ${counter}.md`;
 			counter++;
 		}
-		const path = joinPath(this.settings.taskFilesFolder, fileName);
+		const path = joinPath(destFolder, fileName);
 		const targetLane = this.settings.lanes.find((l) => l.id === laneId);
 		// Wird direkt in "Erledigt" angelegt, braucht die Datei trotzdem eine normale
 		// Herkunfts-Lane im Frontmatter; done:true sorgt fuer die Anzeige in Erledigt.

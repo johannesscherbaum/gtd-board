@@ -42,6 +42,9 @@ export const de = {
 		project: "Projekt",
 		projectDesc:
 			"Freies Projekt (GTD-Projektliste), unabhaengig von Lane und Kontext. Leer lassen, wenn die Aufgabe zu keinem Projekt gehoert.",
+		projectDescFromFolder:
+			"Projekt aus \"{folder}\" (Unterordner auswaehlen). Bestimmt, wo die Aufgaben-Datei gespeichert wird.",
+		projectNone: "— Kein Projekt —",
 		projectPlaceholder: "z. B. SAP-Transformation",
 		delegatedTo: "Delegiert an",
 		delegatedToDesc: 'Name der Person, an die diese Aufgabe delegiert wurde (z. B. fuer "Wartet auf"). Leer lassen, wenn nicht delegiert.',

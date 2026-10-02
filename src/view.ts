@@ -589,6 +589,7 @@ export class GtdBoardView extends ItemView {
 					project: result.project,
 					due: result.due,
 					reminderAt: result.reminderAt,
+					targetFolder: result.projectFolder,
 				});
 				await this.refresh();
 			},
@@ -1325,6 +1326,7 @@ export class GtdBoardView extends ItemView {
 					project: result.project,
 					due: result.due,
 					reminderAt: result.reminderAt,
+					targetFolder: result.projectFolder,
 				});
 				await this.refresh();
 			},
