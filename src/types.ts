@@ -191,6 +191,8 @@ export interface GtdBoardSettings {
 	lastContextFilter: string;
 	/** Zuletzt aktiver +Projekt-Filter (ohne +), wird beim Oeffnen wiederhergestellt. */
 	lastProjectFilter: string;
+	/** Seitenleiste (Listen, Personen, Projekte, Herkunft) eingeblendet (Desktop). */
+	sidebarVisible: boolean;
 }
 
 export const DEFAULT_LANES: LaneConfig[] = [
@@ -228,4 +230,5 @@ export const DEFAULT_SETTINGS: GtdBoardSettings = {
 	lastViewMode: "board",
 	lastContextFilter: "",
 	lastProjectFilter: "",
+	sidebarVisible: true,
 };

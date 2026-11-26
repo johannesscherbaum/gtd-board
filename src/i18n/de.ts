@@ -286,6 +286,15 @@ export const de = {
 		overflow: {
 			title: "Weitere Aktionen",
 		},
+		sidebar: {
+			toggle: "Seitenleiste ein-/ausblenden",
+			lists: "Listen",
+			people: "Personen",
+			projects: "Projekte",
+			origins: "Herkunft",
+			overdueTitle: "{count} ueberfaellig",
+			clearFilters: "Filter zuruecksetzen",
+		},
 		agenda: {
 			empty: "Keine offenen Aufgaben.",
 		},

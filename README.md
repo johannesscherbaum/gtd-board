@@ -94,6 +94,12 @@ A customizable GTD-based Kanban board for Obsidian.
   (front matter `today: YYYY-MM-DD`, inline `🎯 YYYY-MM-DD`), so it expires
   by itself the next day. A recurring task that jumps to its next date loses
   the mark.
+- **Sidebar**: a toggleable sidebar (panel icon at the left of the toolbar)
+  with counters for lists (Today with overdue count, Kanban, Agenda, Week),
+  people (from "Delegated to"), projects and origin. Counters always cover
+  all open tasks; clicking a person, project or origin filters the board,
+  a second click clears the filter. On mobile the sidebar opens on top of the
+  board.
 - **Origin (Planner, meetings)**: file tasks may carry the optional front
   matter fields `source` (e.g. `planner`, `meeting`), `sourceLabel`,
   `sourceUrl` and `plannerId`. The card shows them as a small badge; with a

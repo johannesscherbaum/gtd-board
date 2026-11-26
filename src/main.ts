@@ -217,6 +217,9 @@ export default class GtdBoardPlugin extends Plugin {
 		if (typeof this.settings.lastContextFilter !== "string") {
 			this.settings.lastContextFilter = DEFAULT_SETTINGS.lastContextFilter;
 		}
+		if (typeof this.settings.sidebarVisible !== "boolean") {
+			this.settings.sidebarVisible = DEFAULT_SETTINGS.sidebarVisible;
+		}
 		if (typeof this.settings.lastProjectFilter !== "string") {
 			this.settings.lastProjectFilter = DEFAULT_SETTINGS.lastProjectFilter;
 		}

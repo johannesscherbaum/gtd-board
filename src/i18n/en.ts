@@ -285,6 +285,15 @@ export const en = {
 		overflow: {
 			title: "More actions",
 		},
+		sidebar: {
+			toggle: "Show/hide sidebar",
+			lists: "Lists",
+			people: "People",
+			projects: "Projects",
+			origins: "Origin",
+			overdueTitle: "{count} overdue",
+			clearFilters: "Clear filters",
+		},
 		agenda: {
 			empty: "No open tasks.",
 		},

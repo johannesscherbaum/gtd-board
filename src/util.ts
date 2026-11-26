@@ -427,6 +427,65 @@ export function setInlineTodayMarker(line: string, date: string | undefined): st
 	return `${stripped.replace(/\s+$/, "")} ${TODAY_MARKER} ${date}`;
 }
 
+/** Ein Eintrag einer Seitenleisten-Gruppe (Person, Projekt, Herkunft) mit Anzahl offener Aufgaben. */
+export interface SidebarEntry {
+	key: string;
+	count: number;
+}
+
+/** Zaehler fuer die Seitenleiste; immer ueber alle Aufgaben, unabhaengig von aktiven Filtern. */
+export interface SidebarCounts {
+	/** Heute faellig oder fuer heute markiert (ohne Ueberfaellige). */
+	today: number;
+	overdue: number;
+	/** Alle offenen Aufgaben. */
+	open: number;
+	/** Offene Aufgaben mit Faelligkeit in der laufenden Woche (Montag bis Sonntag). */
+	week: number;
+	/** Personen aus delegatedTo. */
+	people: SidebarEntry[];
+	projects: SidebarEntry[];
+	/** Herkunftsarten (origin.kind, klein geschrieben). */
+	origins: SidebarEntry[];
+}
+
+/**
+ * Berechnet die Zaehler der Seitenleiste. Gezaehlt werden nur offene Aufgaben. Personen,
+ * Projekte und Herkunft ohne Agenda-Eintraege (wie in der Projekteansicht); Gruppen
+ * alphabetisch sortiert.
+ */
+export function buildSidebarCounts(tasks: GtdTask[], agendaLaneId: string, now: Date = new Date()): SidebarCounts {
+	const open = tasks.filter((t) => !t.done);
+	const focus = buildTodayFocus(open, now);
+	const weekStart = formatLocalDate(startOfWeek(now));
+	const weekEnd = formatLocalDate(addDays(startOfWeek(now), 6));
+	const week = open.filter((t) => {
+		const day = t.due?.slice(0, 10);
+		return !!day && day >= weekStart && day <= weekEnd;
+	}).length;
+
+	const group = (pick: (t: GtdTask) => string | undefined): SidebarEntry[] => {
+		const counts = new Map<string, number>();
+		for (const task of open) {
+			if (task.laneId === agendaLaneId) continue;
+			const key = pick(task)?.trim();
+			if (!key) continue;
+			counts.set(key, (counts.get(key) ?? 0) + 1);
+		}
+		return Array.from(counts, ([key, count]) => ({ key, count })).sort((a, b) => a.key.localeCompare(b.key));
+	};
+
+	return {
+		today: focus.today.length,
+		overdue: focus.overdue.length,
+		open: open.length,
+		week,
+		people: group((t) => t.delegatedTo),
+		projects: group((t) => t.project),
+		origins: group((t) => t.origin?.kind.toLowerCase()),
+	};
+}
+
 /** Heute-Fokus: offene Aufgaben, die ueberfaellig sind, und solche, die heute anstehen. */
 export interface TodayFocus {
 	/** Faelligkeitstag liegt vor heute (unabhaengig von einer Heute-Markierung). */

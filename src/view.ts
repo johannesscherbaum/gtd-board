@@ -3,6 +3,7 @@ import type GtdBoardPlugin from "./main";
 import { AGENDA_LANE_ID, GtdTask, LaneConfig, SortMode } from "./types";
 import {
 	addDays,
+	buildSidebarCounts,
 	buildTodayFocus,
 	countSubtasks,
 	daysSince,
@@ -51,6 +52,15 @@ export class GtdBoardView extends ItemView {
 	private contextFilter = "";
 	/** Ausgewaehlter Projekt-Filter (ohne +), leer = kein Filter. Dritte, unabhaengige Filterdimension. */
 	private projectFilter = "";
+	/** Personen-Filter aus der Seitenleiste (delegatedTo), leer = kein Filter. */
+	private personFilter = "";
+	/** Herkunfts-Filter aus der Seitenleiste (origin.kind, klein geschrieben), leer = kein Filter. */
+	private originFilter = "";
+	/** Seitenleiste sichtbar (Desktop: aus den Einstellungen, Mobile: anfangs ausgeblendet). */
+	private sidebarVisible = true;
+	private sidebarEl!: HTMLElement;
+	private sidebarToggleEl!: HTMLElement;
+	private viewModeSelectEl!: HTMLSelectElement;
 	/** Kanban (Lanes nebeneinander), Agenda (flache Liste) oder Woche (Kalender-Raster). */
 	private viewMode: ViewMode = "board";
 	/** Montag der aktuell angezeigten Woche (nur fuer die Wochenansicht relevant). */
@@ -92,6 +102,7 @@ export class GtdBoardView extends ItemView {
 		}
 		this.contextFilter = s.lastContextFilter ?? "";
 		this.projectFilter = s.lastProjectFilter ?? "";
+		this.sidebarVisible = Platform.isMobile ? false : s.sidebarVisible;
 		this.renderShell();
 		await this.refresh();
 	}
@@ -174,6 +185,12 @@ export class GtdBoardView extends ItemView {
 
 		const toolbar = container.createDiv({ cls: "gtd-board-toolbar" });
 
+		this.sidebarToggleEl = this.createIconButton(toolbar, "panel-left", "", "gtd-board-sidebar-toggle");
+		this.sidebarToggleEl.setAttribute("aria-label", t("view.sidebar.toggle"));
+		this.sidebarToggleEl.setAttribute("title", t("view.sidebar.toggle"));
+		this.sidebarToggleEl.toggleClass("is-active", this.sidebarVisible);
+		this.sidebarToggleEl.addEventListener("click", () => this.setSidebarVisible(!this.sidebarVisible));
+
 		const searchGroup = toolbar.createDiv({
 			cls: "gtd-toolbar-group gtd-toolbar-inline-icon gtd-toolbar-search-group",
 		});
@@ -248,6 +265,7 @@ export class GtdBoardView extends ItemView {
 		const viewModeGroup = controlsParent.createDiv({ cls: "gtd-toolbar-group gtd-toolbar-inline-icon" });
 		this.createToolbarIcon(viewModeGroup, "layout-grid");
 		const viewModeSelect = viewModeGroup.createEl("select", { cls: "gtd-board-viewmode" });
+		this.viewModeSelectEl = viewModeSelect;
 		viewModeSelect.setAttribute("title", t("view.viewMode.title"));
 		viewModeSelect.createEl("option", { text: t("view.viewMode.board"), value: "board" });
 		viewModeSelect.createEl("option", { text: t("view.viewMode.today"), value: "today" });
@@ -256,18 +274,7 @@ export class GtdBoardView extends ItemView {
 		viewModeSelect.createEl("option", { text: t("view.viewMode.projects"), value: "projects" });
 		viewModeSelect.createEl("option", { text: t("view.viewMode.contexts"), value: "contexts" });
 		viewModeSelect.value = this.viewMode;
-		viewModeSelect.addEventListener("change", () => {
-			const prev = this.viewMode;
-			this.viewMode = viewModeSelect.value as ViewMode;
-			if (prev === "projects" && this.viewMode !== "projects") {
-				this.detailProject = undefined;
-			}
-			this.sortSelectEl.toggle(
-				this.viewMode === "board" || this.viewMode === "projects" || this.viewMode === "contexts"
-			);
-			void this.plugin.saveUiState({ lastViewMode: this.viewMode });
-			this.renderBoard();
-		});
+		viewModeSelect.addEventListener("change", () => this.setViewMode(viewModeSelect.value as ViewMode));
 
 		const sortGroup = controlsParent.createDiv({ cls: "gtd-toolbar-group gtd-toolbar-inline-icon" });
 		this.createToolbarIcon(sortGroup, "arrow-up-down");
@@ -313,7 +320,149 @@ export class GtdBoardView extends ItemView {
 		this.bulkBarEl = container.createDiv({ cls: "gtd-bulk-bar" });
 		this.bulkBarEl.hide();
 
-		this.boardEl = container.createDiv({ cls: "gtd-board" });
+		const mainEl = container.createDiv({ cls: "gtd-board-main" });
+		this.sidebarEl = mainEl.createDiv({ cls: "gtd-board-sidebar" });
+		this.boardEl = mainEl.createDiv({ cls: "gtd-board" });
+	}
+
+	/** Wechselt die Ansicht (Toolbar-Auswahl oder Seitenleiste) und merkt sie sich. */
+	private setViewMode(mode: ViewMode): void {
+		const prev = this.viewMode;
+		this.viewMode = mode;
+		if (prev === "projects" && mode !== "projects") {
+			this.detailProject = undefined;
+		}
+		this.viewModeSelectEl.value = mode;
+		this.sortSelectEl.toggle(mode === "board" || mode === "projects" || mode === "contexts");
+		void this.plugin.saveUiState({ lastViewMode: mode });
+		this.renderBoard();
+	}
+
+	/** Blendet die Seitenleiste ein/aus; auf dem Desktop wird der Zustand gespeichert. */
+	private setSidebarVisible(visible: boolean): void {
+		this.sidebarVisible = visible;
+		this.sidebarToggleEl.toggleClass("is-active", visible);
+		if (!Platform.isMobile) void this.plugin.saveUiState({ sidebarVisible: visible });
+		this.renderSidebar();
+	}
+
+	/**
+	 * Seitenleiste mit Zaehlern: Listen (Ansichten), Personen (delegatedTo), Projekte und
+	 * Herkunft. Die Zaehler gelten immer fuer alle offenen Aufgaben; ein Klick auf eine Person,
+	 * ein Projekt oder eine Herkunft filtert das Board, ein zweiter Klick hebt den Filter auf.
+	 */
+	private renderSidebar(): void {
+		if (!this.sidebarEl) return;
+		this.sidebarEl.empty();
+		this.sidebarEl.toggle(this.sidebarVisible);
+		if (!this.sidebarVisible) return;
+
+		const counts = buildSidebarCounts(this.tasks, AGENDA_LANE_ID);
+		const afterClick = () => {
+			if (Platform.isMobile) this.setSidebarVisible(false);
+		};
+
+		const lists = this.createSidebarGroup(t("view.sidebar.lists"));
+		const todayItem = this.addSidebarItem(lists, "sun", t("view.viewMode.today"), counts.today, this.viewMode === "today", () => {
+			this.setViewMode("today");
+			afterClick();
+		});
+		if (counts.overdue > 0) {
+			todayItem.createSpan({
+				cls: "gtd-sidebar-count gtd-sidebar-count-overdue",
+				text: String(counts.overdue),
+				attr: { title: t("view.sidebar.overdueTitle", { count: counts.overdue }) },
+			});
+		}
+		const listModes: { mode: ViewMode; icon: string; count: number }[] = [
+			{ mode: "board", icon: "layout-grid", count: counts.open },
+			{ mode: "agenda", icon: "list", count: counts.open },
+			{ mode: "week", icon: "calendar-days", count: counts.week },
+		];
+		for (const entry of listModes) {
+			this.addSidebarItem(lists, entry.icon, t(`view.viewMode.${entry.mode}` as "view.viewMode.board"), entry.count, this.viewMode === entry.mode, () => {
+				this.setViewMode(entry.mode);
+				afterClick();
+			});
+		}
+
+		if (counts.people.length > 0) {
+			const group = this.createSidebarGroup(t("view.sidebar.people"));
+			for (const person of counts.people) {
+				this.addSidebarItem(group, "user", person.key, person.count, this.personFilter === person.key, () => {
+					this.personFilter = this.personFilter === person.key ? "" : person.key;
+					this.renderBoard();
+					afterClick();
+				});
+			}
+		}
+
+		if (counts.projects.length > 0) {
+			const group = this.createSidebarGroup(t("view.sidebar.projects"));
+			for (const project of counts.projects) {
+				this.addSidebarItem(group, "folder", `+${project.key}`, project.count, this.projectFilter === project.key, () => {
+					this.projectFilter = this.projectFilter === project.key ? "" : project.key;
+					this.projectSelectEl.value = this.projectFilter;
+					void this.plugin.saveUiState({ lastProjectFilter: this.projectFilter });
+					this.renderBoard();
+					afterClick();
+				});
+			}
+		}
+
+		if (counts.origins.length > 0) {
+			const group = this.createSidebarGroup(t("view.sidebar.origins"));
+			for (const origin of counts.origins) {
+				const icon = origin.key === "planner" ? "clipboard-list" : origin.key === "meeting" ? "calendar-clock" : "link";
+				this.addSidebarItem(group, icon, originKindLabel(origin.key), origin.count, this.originFilter === origin.key, () => {
+					this.originFilter = this.originFilter === origin.key ? "" : origin.key;
+					this.renderBoard();
+					afterClick();
+				});
+			}
+		}
+
+		if (this.personFilter || this.projectFilter || this.originFilter) {
+			const reset = this.sidebarEl.createEl("button", { cls: "gtd-sidebar-reset", text: t("view.sidebar.clearFilters") });
+			reset.addEventListener("click", () => {
+				this.personFilter = "";
+				this.originFilter = "";
+				this.projectFilter = "";
+				this.projectSelectEl.value = "";
+				void this.plugin.saveUiState({ lastProjectFilter: "" });
+				this.renderBoard();
+			});
+		}
+	}
+
+	private createSidebarGroup(title: string): HTMLElement {
+		const group = this.sidebarEl.createDiv({ cls: "gtd-sidebar-group" });
+		group.createDiv({ cls: "gtd-sidebar-group-title", text: title });
+		return group;
+	}
+
+	private addSidebarItem(
+		group: HTMLElement,
+		icon: string,
+		label: string,
+		count: number,
+		active: boolean,
+		onClick: () => void
+	): HTMLElement {
+		const item = group.createDiv({ cls: "gtd-sidebar-item", attr: { role: "button", tabindex: "0" } });
+		if (active) item.addClass("is-active");
+		const iconEl = item.createSpan({ cls: "gtd-sidebar-item-icon" });
+		setIcon(iconEl, icon);
+		item.createSpan({ cls: "gtd-sidebar-item-label", text: label, attr: { title: label } });
+		item.createSpan({ cls: "gtd-sidebar-count", text: String(count) });
+		item.addEventListener("click", onClick);
+		item.addEventListener("keydown", (evt) => {
+			if (evt.key === "Enter" || evt.key === " ") {
+				evt.preventDefault();
+				onClick();
+			}
+		});
+		return item;
 	}
 
 	private async setSortMode(mode: SortMode): Promise<void> {
@@ -353,6 +502,7 @@ export class GtdBoardView extends ItemView {
 			}
 		}
 		this.updateBulkBar();
+		this.renderSidebar();
 	}
 
 	/**
@@ -833,6 +983,8 @@ export class GtdBoardView extends ItemView {
 	private matchesFilter(task: GtdTask): boolean {
 		if (this.contextFilter && !task.contexts.includes(this.contextFilter)) return false;
 		if (this.projectFilter && task.project !== this.projectFilter) return false;
+		if (this.personFilter && task.delegatedTo?.trim() !== this.personFilter) return false;
+		if (this.originFilter && task.origin?.kind.toLowerCase() !== this.originFilter) return false;
 		if (!this.filterText) return true;
 		if (task.title.toLowerCase().includes(this.filterText)) return true;
 		return task.tags.some((t) => t.toLowerCase().includes(this.filterText));

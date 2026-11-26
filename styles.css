@@ -105,7 +105,115 @@
 	overflow-x: auto;
 	padding: 4px 8px 12px 8px;
 	flex: 1;
+	min-width: 0;
 	align-items: flex-start;
+}
+
+/* Hauptbereich: Seitenleiste | Board (| Detailpanel) */
+.gtd-board-main {
+	display: flex;
+	flex-direction: row;
+	flex: 1;
+	min-height: 0;
+	position: relative;
+}
+
+.gtd-board-sidebar-toggle.is-active {
+	color: var(--text-accent);
+}
+
+.gtd-board-sidebar {
+	flex: 0 0 200px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	overflow-y: auto;
+	padding: 4px 8px 12px 8px;
+	border-right: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+}
+
+/* Auf Mobile liegt die Seitenleiste ueber dem Board statt daneben. */
+.is-mobile .gtd-board-sidebar {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 10;
+	width: 75%;
+	max-width: 280px;
+	box-shadow: var(--shadow-l);
+}
+
+.gtd-sidebar-group {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
+
+.gtd-sidebar-group-title {
+	font-size: var(--font-ui-smaller);
+	font-weight: 600;
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	padding: 4px 6px;
+}
+
+.gtd-sidebar-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 6px;
+	border-radius: var(--radius-s);
+	cursor: pointer;
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+}
+
+.gtd-sidebar-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.gtd-sidebar-item.is-active {
+	background: var(--background-modifier-active-hover);
+	color: var(--text-accent);
+}
+
+.gtd-sidebar-item-icon {
+	display: inline-flex;
+	color: var(--text-muted);
+}
+
+.gtd-sidebar-item-icon svg {
+	width: 14px;
+	height: 14px;
+}
+
+.gtd-sidebar-item-label {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gtd-sidebar-count {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.gtd-sidebar-count-overdue {
+	color: var(--text-on-accent);
+	background: var(--background-modifier-error);
+	border-radius: var(--radius-s);
+	padding: 0 5px;
+}
+
+.gtd-sidebar-reset {
+	margin-top: 4px;
+	font-size: var(--font-ui-smaller);
 }
 
 .gtd-board.gtd-board-agenda-mode {
