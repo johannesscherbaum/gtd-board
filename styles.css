@@ -1144,8 +1144,97 @@
 	color: var(--text-muted);
 }
 
-.gtd-task-modal .gtd-modal-title-input {
+.gtd-task-modal .gtd-modal-title-input,
+.gtd-detail-panel .gtd-modal-title-input {
 	width: 100%;
+}
+
+/* Schnellwahl-Chips unter Faelligkeit und Erinnerung */
+.gtd-chip-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 6px;
+}
+
+.gtd-chip {
+	font-size: var(--font-ui-smaller);
+	padding: 2px 8px;
+	height: auto;
+	border-radius: var(--radius-l);
+	background: var(--background-modifier-form-field);
+	border: 1px solid var(--background-modifier-border);
+	color: var(--text-normal);
+	box-shadow: none;
+	cursor: pointer;
+}
+
+.gtd-chip:hover {
+	border-color: var(--interactive-accent);
+	color: var(--text-accent);
+}
+
+/* Detailpanel rechts neben dem Board */
+.gtd-detail-panel {
+	flex: 0 0 380px;
+	max-width: 45%;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	border-left: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+}
+
+.gtd-detail-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.gtd-detail-title {
+	flex: 1;
+	font-weight: 600;
+}
+
+.gtd-detail-body {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 0 12px;
+}
+
+/* Im schmalen Panel stehen Name/Beschreibung und Eingabe untereinander statt nebeneinander. */
+.gtd-detail-body .setting-item {
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.gtd-detail-body .setting-item-info {
+	flex: 1 1 100%;
+	margin-right: 0;
+}
+
+.gtd-detail-body .setting-item-control {
+	flex: 1 1 100%;
+	justify-content: flex-start;
+}
+
+.gtd-detail-footer {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 8px 12px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+/* Aktive Karte (im Detailpanel offen): linker Rand behaelt die Prioritaetsfarbe. */
+.gtd-card.gtd-card-active {
+	border-top-color: var(--interactive-accent);
+	border-right-color: var(--interactive-accent);
+	border-bottom-color: var(--interactive-accent);
+	background: var(--background-modifier-hover);
 }
 
 .gtd-description-editor {

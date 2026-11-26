@@ -23,7 +23,8 @@ import { getLocale, originKindLabel, priorityLabel, recurrenceLabel, t } from ".
 function intlLocale(): string {
 	return getLocale() === "de" ? "de-DE" : "en-US";
 }
-import { ProcessModal, TaskModal, confirmDialog } from "./modals";
+import { ProcessModal, TaskModal, TaskModalOptions, confirmDialog } from "./modals";
+import { TaskDetailPanel } from "./detail-panel";
 
 export const GTD_BOARD_VIEW_TYPE = "gtd-board-view";
 
@@ -61,6 +62,8 @@ export class GtdBoardView extends ItemView {
 	private sidebarEl!: HTMLElement;
 	private sidebarToggleEl!: HTMLElement;
 	private viewModeSelectEl!: HTMLSelectElement;
+	/** Detailpanel rechts neben dem Board (Desktop); auf Mobile wird weiter der Dialog genutzt. */
+	private detailPanel!: TaskDetailPanel;
 	/** Kanban (Lanes nebeneinander), Agenda (flache Liste) oder Woche (Kalender-Raster). */
 	private viewMode: ViewMode = "board";
 	/** Montag der aktuell angezeigten Woche (nur fuer die Wochenansicht relevant). */
@@ -108,12 +111,16 @@ export class GtdBoardView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
+		this.detailPanel?.close();
 		this.contentEl.empty();
 	}
 
 	/** Laedt Aufgaben aus dem Store neu und zeichnet nur das Board (nicht die Toolbar) neu. */
 	async refresh(): Promise<void> {
 		this.tasks = await this.plugin.store.getAllTasks();
+		// Wurde die bearbeitete Aufgabe inzwischen geloescht oder umbenannt, Panel schliessen.
+		const panelTaskId = this.detailPanel?.taskId;
+		if (panelTaskId && !this.tasks.some((t) => t.id === panelTaskId)) this.detailPanel.close();
 		this.renderContextFilterOptions();
 		this.renderProjectFilterOptions();
 		this.renderBoard();
@@ -323,6 +330,36 @@ export class GtdBoardView extends ItemView {
 		const mainEl = container.createDiv({ cls: "gtd-board-main" });
 		this.sidebarEl = mainEl.createDiv({ cls: "gtd-board-sidebar" });
 		this.boardEl = mainEl.createDiv({ cls: "gtd-board" });
+		this.detailPanel = new TaskDetailPanel(mainEl.createDiv({ cls: "gtd-detail-panel" }), this.app, this.plugin);
+	}
+
+	/**
+	 * Oeffnet das Aufgaben-Formular: auf dem Desktop im Detailpanel neben dem Board, auf Mobile
+	 * (wenig Platz) weiterhin als Dialog. Beide nutzen dieselbe Komponente TaskForm.
+	 */
+	private openTaskEditor(options: TaskModalOptions): void {
+		if (Platform.isMobile) {
+			new TaskModal(this.app, this.plugin, options).open();
+			return;
+		}
+		const task = options.task;
+		this.detailPanel.open({
+			...options,
+			autofocusTitle: options.mode === "create",
+			heading:
+				options.titleOverride ??
+				(options.mode === "create" ? t("taskModal.titleCreate") : t("taskModal.titleEdit")),
+			onOpenFile: task?.source === "file" ? () => this.openTaskFile(task) : undefined,
+			onClose: () => this.renderBoard(),
+		});
+		this.renderBoard();
+	}
+
+	private openTaskFile(task: GtdTask): void {
+		const file = this.app.vault.getAbstractFileByPath(task.filePath);
+		if (file instanceof TFile) {
+			void this.app.workspace.getLeaf(true).openFile(file);
+		}
 	}
 
 	/** Wechselt die Ansicht (Toolbar-Auswahl oder Seitenleiste) und merkt sie sich. */
@@ -823,7 +860,7 @@ export class GtdBoardView extends ItemView {
 	/** Oeffnet einen Erstellen-Dialog mit vorausgefuelltem Projekt (fuer "+" in der Projekteansicht). */
 	private openCreateModalForProject(project: string | null): void {
 		const defaultLaneId = this.plugin.store.defaultLaneId();
-		const modal = new TaskModal(this.app, this.plugin, {
+		this.openTaskEditor({
 			mode: "create",
 			laneId: defaultLaneId,
 			initialProject: project ?? undefined,
@@ -854,7 +891,6 @@ export class GtdBoardView extends ItemView {
 				await this.refresh();
 			},
 		});
-		modal.open();
 	}
 
 	/** Detailansicht eines einzelnen Projekts: alle Aufgaben (offen + erledigt) mit Zurueck-Button. */
@@ -1210,6 +1246,7 @@ export class GtdBoardView extends ItemView {
 	): HTMLElement {
 		const card = createDiv({ cls: ["gtd-card", `gtd-card-priority-${task.priority ?? "medium"}`] });
 		if (task.source === "inline") card.addClass("gtd-card-inline");
+		if (this.detailPanel?.taskId === task.id) card.addClass("gtd-card-active");
 		card.setAttribute("draggable", "true");
 
 		card.addEventListener("dragstart", (evt) => {
@@ -1642,12 +1679,7 @@ export class GtdBoardView extends ItemView {
 				item
 					.setTitle(t("view.contextMenu.openFile"))
 					.setIcon("file-text")
-					.onClick(() => {
-						const file = this.app.vault.getAbstractFileByPath(task.filePath);
-						if (file instanceof TFile) {
-							void this.app.workspace.getLeaf(true).openFile(file);
-						}
-					})
+					.onClick(() => this.openTaskFile(task))
 			);
 		}
 		if (!task.done) {
@@ -1773,7 +1805,7 @@ export class GtdBoardView extends ItemView {
 	}
 
 	private openCreateModal(laneId: string): void {
-		const modal = new TaskModal(this.app, this.plugin, {
+		this.openTaskEditor({
 			mode: "create",
 			laneId,
 			onSubmit: async (result) => {
@@ -1805,11 +1837,10 @@ export class GtdBoardView extends ItemView {
 				await this.refresh();
 			},
 		});
-		modal.open();
 	}
 
 	private openCreateAgendaModal(): void {
-		const modal = new TaskModal(this.app, this.plugin, {
+		this.openTaskEditor({
 			mode: "create",
 			laneId: AGENDA_LANE_ID,
 			showPersonField: true,
@@ -1830,12 +1861,11 @@ export class GtdBoardView extends ItemView {
 				await this.refresh();
 			},
 		});
-		modal.open();
 	}
 
 	private openEditModal(task: GtdTask): void {
 		const isAgendaItem = task.laneId === AGENDA_LANE_ID;
-		const modal = new TaskModal(this.app, this.plugin, {
+		this.openTaskEditor({
 			mode: "edit",
 			laneId: task.laneId,
 			task,
@@ -1877,7 +1907,6 @@ export class GtdBoardView extends ItemView {
 				await this.refresh();
 			},
 		});
-		modal.open();
 	}
 
 	private async deleteTask(task: GtdTask): Promise<void> {

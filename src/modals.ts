@@ -1,123 +1,28 @@
-import { App, ButtonComponent, Component, ConfirmationModal, MarkdownRenderer, Modal, Notice, Setting, TFolder, normalizePath } from "obsidian";
+import { App, Component, ConfirmationModal, MarkdownRenderer, Modal, Notice, Setting, TFolder, normalizePath } from "obsidian";
+import { TaskForm, TaskFormOptions, TaskFormResult } from "./task-form";
 import type GtdBoardPlugin from "./main";
-import { GtdTask, LaneConfig, RecurrenceRule, TaskPriority } from "./types";
-import {
-	addDays,
-	daysSince,
-	formatLocalDate,
-	hasTimeComponent,
-	parseLocalDateTime,
-	parseQuickCapture,
-	shouldPromoteFromInbox,
-} from "./util";
-import { priorityLabel, recurrenceLabel, t } from "./i18n";
+import { GtdTask, LaneConfig } from "./types";
+import { addDays, daysSince, formatLocalDate, parseQuickCapture, shouldPromoteFromInbox } from "./util";
+import { recurrenceLabel, t } from "./i18n";
 
-export interface TaskModalResult {
-	title: string;
-	description: string;
-	due?: string;
-	reminderAt?: string;
-	priority: TaskPriority;
-	recurrence?: RecurrenceRule;
-	contexts: string[];
-	tags: string[];
-	delegatedTo?: string;
-	project?: string;
-	/** Vault path of the target project folder (set when projectRootFolder is configured and a folder-project was chosen). */
-	projectFolder?: string;
-	person?: string;
-	visibleFrom?: string;
-	revisitOn?: string;
-}
+export type TaskModalResult = TaskFormResult;
 
-export interface TaskModalOptions {
-	mode: "create" | "edit";
-	laneId: string;
-	task?: GtdTask;
-	/** Person-Feld anzeigen (fuer Agenda-Eintraege). */
-	showPersonField?: boolean;
+export interface TaskModalOptions extends TaskFormOptions {
 	/** Ueberschreibt den Standard-Fenstertitel des Dialogs. */
 	titleOverride?: string;
-	/** Vorausgefuelltes Projekt (z. B. beim Anlegen aus der Projekteansicht). */
-	initialProject?: string;
 	onSubmit: (result: TaskModalResult) => Promise<void>;
 }
 
-/** Dialog zum Anlegen bzw. Bearbeiten einer Aufgabe: Titel, Markdown-Beschreibung, Faelligkeit, Erinnerung, Tags. */
+/**
+ * Dialog zum Anlegen bzw. Bearbeiten einer Aufgabe. Die Felder liefert die gemeinsame
+ * Komponente TaskForm (auch im Detailpanel der Board-Ansicht verwendet).
+ */
 export class TaskModal extends Modal {
-	private title: string;
-	private description: string;
-	/** Datumsteil (YYYY-MM-DD) der Faelligkeit, leer = keine Faelligkeit. */
-	private dueDate: string;
-	/** Uhrzeitteil (HH:mm) der Faelligkeit, leer = ganztaegig (keine Uhrzeit). */
-	private dueTime: string;
-	private reminderDate: string;
-	private reminderTime: string;
-	private priority: TaskPriority;
-	private recurrence: RecurrenceRule | undefined;
-	private contexts: string;
-	private tags: string;
-	private delegatedTo: string;
-	private project: string;
-	private projectFolder: string | undefined = undefined;
-	private person: string;
-	private visibleFrom: string;
-	private revisitOn: string;
-	private previewComponent = new Component();
-	private descriptionShowingPreview = true;
+	private form: TaskForm;
 
 	constructor(app: App, private plugin: GtdBoardPlugin, private options: TaskModalOptions) {
 		super(app);
-		const task = options.task;
-		this.title = task?.title ?? "";
-		this.description = task?.description ?? "";
-		[this.dueDate, this.dueTime] = this.splitInputValue(task?.due);
-		[this.reminderDate, this.reminderTime] = this.splitInputValue(task?.reminderAt);
-		this.priority = task?.priority ?? "medium";
-		this.recurrence = task?.recurrence;
-		this.contexts = task?.contexts.join(", ") ?? "";
-		this.tags = task?.tags.join(", ") ?? "";
-		this.delegatedTo = task?.delegatedTo ?? "";
-		this.project = task?.project ?? options.initialProject ?? "";
-		this.person = task?.person ?? "";
-		this.visibleFrom = task?.visibleFrom ?? "";
-		this.revisitOn = task?.revisitOn ?? "";
-	}
-
-	/** Zerlegt einen gespeicherten Datums(-zeit)-Wert in Datums- und Uhrzeit-Teil fuer die getrennten Inputs. */
-	private splitInputValue(value: string | undefined): [string, string] {
-		if (!value) return ["", ""];
-		if (hasTimeComponent(value)) {
-			const [datePart, timePart] = value.split("T");
-			return [datePart, timePart ?? ""];
-		}
-		return [value, ""];
-	}
-
-	/** Fuegt Datums- und Uhrzeit-Teil wieder zu einem Wert im Speicherformat zusammen (oder undefined, wenn kein Datum gesetzt ist). */
-	private combineInputValue(datePart: string, timePart: string): string | undefined {
-		if (!datePart) return undefined;
-		return timePart ? `${datePart}T${timePart}` : datePart;
-	}
-
-	/**
-	 * Rundet eine "HH:mm"-Eingabe auf den naechsten 15-Minuten-Schritt. Der
-	 * `step`-Attribut auf <input type="time"> wirkt nur auf die Spinner-Pfeile,
-	 * nicht auf manuell eingetippte Werte - deshalb wird hier zusaetzlich
-	 * hart gerundet, sobald das Feld verlassen wird.
-	 */
-	private roundToQuarterHour(time: string): string {
-		if (!time) return time;
-		const m = /^(\d{2}):(\d{2})$/.exec(time);
-		if (!m) return time;
-		const hour = Number(m[1]);
-		const minute = Number(m[2]);
-		const totalMinutes = hour * 60 + minute;
-		const rounded = Math.round(totalMinutes / 15) * 15;
-		const clamped = ((rounded % (24 * 60)) + 24 * 60) % (24 * 60);
-		const roundedHour = Math.floor(clamped / 60);
-		const roundedMinute = clamped % 60;
-		return `${String(roundedHour).padStart(2, "0")}:${String(roundedMinute).padStart(2, "0")}`;
+		this.form = new TaskForm(app, plugin, { ...options, autofocusTitle: true });
 	}
 
 	onOpen(): void {
@@ -127,266 +32,7 @@ export class TaskModal extends Modal {
 			this.options.titleOverride ??
 			(this.options.mode === "create" ? t("taskModal.titleCreate") : t("taskModal.titleEdit"))
 		);
-
-		new Setting(contentEl).setName(t("taskModal.title")).addText((text) => {
-			text.setValue(this.title).onChange((v) => (this.title = v));
-			text.inputEl.addClass("gtd-modal-title-input");
-			window.setTimeout(() => text.inputEl.focus(), 0);
-		});
-
-		let descToggleButton: ButtonComponent;
-		new Setting(contentEl)
-			.setName(t("taskModal.description"))
-			.setClass("gtd-modal-description-setting")
-			.addButton((btn) => {
-				descToggleButton = btn;
-				btn.onClick(() => {
-					this.descriptionShowingPreview = !this.descriptionShowingPreview;
-					updateDescriptionView();
-				});
-			});
-
-		const editorWrap = contentEl.createDiv({ cls: "gtd-description-editor" });
-		const toolbar = editorWrap.createDiv({ cls: "gtd-wysiwyg-toolbar" });
-		const textarea = editorWrap.createEl("textarea", { cls: "gtd-description-textarea" });
-		textarea.value = this.description;
-		textarea.rows = 8;
-		const preview = editorWrap.createDiv({ cls: "gtd-description-preview" });
-
-		const renderPreview = async () => {
-			preview.empty();
-			await MarkdownRenderer.render(
-				this.app,
-				this.description || t("taskModal.noDescription"),
-				preview,
-				"",
-				this.previewComponent
-			);
-			const checkboxEls = Array.from(preview.querySelectorAll<HTMLInputElement>("input[type=checkbox]"));
-			checkboxEls.forEach((cb, idx) => {
-				const clone = cb.cloneNode(true) as HTMLInputElement;
-				clone.disabled = false;
-				cb.replaceWith(clone);
-				clone.addEventListener("change", () => {
-					const checked = clone.checked;
-					let count = 0;
-					this.description = this.description.split(/\r?\n/).map((line) => {
-						if (/^\s*[-*+]\s*\[[ xX]\]/.test(line)) {
-							if (count++ === idx) {
-								return line.replace(/\[[ xX]\]/, checked ? "[x]" : "[ ]");
-							}
-						}
-						return line;
-					}).join("\n");
-					textarea.value = this.description;
-					void renderPreview();
-					if (this.options.mode === "edit" && this.options.task?.source === "file") {
-						void this.plugin.store.patchFileTaskBody(this.options.task, this.description)
-							.then(() => void this.plugin.refreshBoardViews());
-					}
-				});
-			});
-		};
-
-		textarea.addEventListener("input", () => {
-			this.description = textarea.value;
-		});
-
-		const wrapSelection = (before: string, after: string) => {
-			const start = textarea.selectionStart;
-			const end = textarea.selectionEnd;
-			const selected = textarea.value.slice(start, end);
-			textarea.setRangeText(before + selected + after, start, end, "select");
-			this.description = textarea.value;
-			textarea.focus();
-		};
-
-		const prependLines = (prefix: string) => {
-			const val = textarea.value;
-			const start = textarea.selectionStart;
-			const end = textarea.selectionEnd;
-			const lineStart = val.lastIndexOf("\n", start - 1) + 1;
-			const lineEndIdx = val.indexOf("\n", end);
-			const blockEnd = lineEndIdx === -1 ? val.length : lineEndIdx;
-			const block = val.slice(lineStart, blockEnd);
-			const prefixed = block.split("\n").map((l) => prefix + l).join("\n");
-			textarea.setRangeText(prefixed, lineStart, blockEnd, "end");
-			this.description = textarea.value;
-			textarea.focus();
-		};
-
-		const addToolbarBtn = (label: string, title: string, action: () => void) => {
-			const btn = toolbar.createEl("button", { cls: "gtd-wysiwyg-btn", text: label });
-			btn.title = title;
-			btn.type = "button";
-			btn.addEventListener("mousedown", (e) => {
-				e.preventDefault();
-				action();
-			});
-		};
-
-		addToolbarBtn("B", t("taskModal.toolbarBold"), () => wrapSelection("**", "**"));
-		addToolbarBtn("I", t("taskModal.toolbarItalic"), () => wrapSelection("*", "*"));
-		addToolbarBtn("S", t("taskModal.toolbarStrike"), () => wrapSelection("~~", "~~"));
-		addToolbarBtn("`", t("taskModal.toolbarCode"), () => wrapSelection("`", "`"));
-		addToolbarBtn("—", t("taskModal.toolbarBullet"), () => prependLines("- "));
-		addToolbarBtn("☐", t("taskModal.toolbarTask"), () => prependLines("- [ ] "));
-
-		const updateDescriptionView = () => {
-			if (this.descriptionShowingPreview) {
-				void renderPreview();
-				textarea.setCssStyles({ display: "none" });
-				toolbar.setCssStyles({ display: "none" });
-				preview.setCssStyles({ display: "" });
-				descToggleButton.setButtonText(t("taskModal.editButton"));
-			} else {
-				textarea.setCssStyles({ display: "" });
-				toolbar.setCssStyles({ display: "" });
-				preview.setCssStyles({ display: "none" });
-				descToggleButton.setButtonText(t("taskModal.previewButton"));
-				window.setTimeout(() => textarea.focus(), 0);
-			}
-		};
-		updateDescriptionView();
-
-		new Setting(contentEl)
-			.setName(t("taskModal.dueDate"))
-			.setDesc(t("taskModal.dueDateDesc"))
-			.addText((text) => {
-				text.inputEl.type = "date";
-				text.setValue(this.dueDate).onChange((v) => (this.dueDate = v));
-			})
-			.addText((text) => {
-				text.inputEl.type = "time";
-				text.inputEl.step = "900";
-				text.inputEl.title = t("taskModal.timeTooltip");
-				text.setValue(this.dueTime).onChange((v) => (this.dueTime = v));
-				text.inputEl.addEventListener("blur", () => {
-					this.dueTime = this.roundToQuarterHour(this.dueTime);
-					text.setValue(this.dueTime);
-				});
-			});
-
-		new Setting(contentEl)
-			.setName(t("taskModal.recurrence"))
-			.setDesc(t("taskModal.recurrenceDesc"))
-			.addDropdown((dropdown) => {
-				dropdown.addOption("", t("taskModal.recurrenceNone"));
-				(["daily", "weekly", "monthly", "yearly"] as RecurrenceRule[]).forEach((r) => {
-					dropdown.addOption(r, recurrenceLabel(r));
-				});
-				dropdown.setValue(this.recurrence ?? "").onChange((v) => {
-					this.recurrence = (v || undefined) as RecurrenceRule | undefined;
-				});
-			});
-
-		new Setting(contentEl)
-			.setName(t("taskModal.reminder"))
-			.setDesc(
-				t("taskModal.reminderDesc", { minutes: this.plugin.settings.defaultReminderOffsetMinutes })
-			)
-			.addText((text) => {
-				text.inputEl.type = "date";
-				text.setValue(this.reminderDate).onChange((v) => (this.reminderDate = v));
-			})
-			.addText((text) => {
-				text.inputEl.type = "time";
-				text.inputEl.step = "900";
-				text.inputEl.title = t("taskModal.timeTooltip");
-				text.setValue(this.reminderTime).onChange((v) => (this.reminderTime = v));
-				text.inputEl.addEventListener("blur", () => {
-					this.reminderTime = this.roundToQuarterHour(this.reminderTime);
-					text.setValue(this.reminderTime);
-				});
-			});
-
-		new Setting(contentEl)
-			.setName(t("taskModal.priority"))
-			.setDesc(t("taskModal.priorityDesc"))
-			.addDropdown((dropdown) => {
-				(["high", "medium", "low"] as TaskPriority[]).forEach((p) => {
-					dropdown.addOption(p, priorityLabel(p));
-				});
-				dropdown.setValue(this.priority).onChange((v) => (this.priority = v as TaskPriority));
-			});
-
-		const projectSetting = new Setting(contentEl).setName(t("taskModal.project"));
-		const projectRootFolder = this.plugin.settings.projectRootFolder?.trim();
-		const projectFolders = projectRootFolder ? this.getProjectFolders(projectRootFolder) : [];
-		if (projectRootFolder && projectFolders.length > 0) {
-			projectSetting.setDesc(t("taskModal.projectDescFromFolder", { folder: projectRootFolder }));
-			projectSetting.addDropdown((dropdown) => {
-				dropdown.addOption("", t("taskModal.projectNone"));
-				for (const name of projectFolders) {
-					dropdown.addOption(name, name);
-				}
-				if (this.project && !projectFolders.includes(this.project)) {
-					dropdown.addOption(this.project, this.project);
-				}
-				dropdown.setValue(this.project);
-				if (this.project && projectFolders.includes(this.project)) {
-					this.projectFolder = normalizePath(`${projectRootFolder}/${this.project}`);
-				}
-				dropdown.onChange((v) => {
-					this.project = v;
-					this.projectFolder = v && projectFolders.includes(v)
-						? normalizePath(`${projectRootFolder}/${v}`)
-						: undefined;
-				});
-			});
-		} else {
-			projectSetting.setDesc(t("taskModal.projectDesc"));
-			projectSetting.addText((text) => {
-				text.setPlaceholder(t("taskModal.projectPlaceholder")).setValue(this.project).onChange((v) => (this.project = v));
-			});
-		}
-
-		if (this.options.showPersonField) {
-			new Setting(contentEl)
-				.setName(t("taskModal.person"))
-				.setDesc(t("taskModal.personDesc"))
-				.addText((text) => {
-					text.setPlaceholder(t("taskModal.personPlaceholder")).setValue(this.person).onChange((v) => (this.person = v));
-					text.inputEl.addClass("gtd-modal-person-input");
-				});
-		}
-
-		new Setting(contentEl)
-			.setName(t("taskModal.delegatedTo"))
-			.setDesc(t("taskModal.delegatedToDesc"))
-			.addText((text) => {
-				text.setPlaceholder(t("taskModal.delegatedToPlaceholder")).setValue(this.delegatedTo).onChange((v) => (this.delegatedTo = v));
-			});
-
-		new Setting(contentEl)
-			.setName(t("taskModal.contexts"))
-			.setDesc(t("taskModal.contextsDesc"))
-			.addText((text) => {
-				text.setValue(this.contexts).onChange((v) => (this.contexts = v));
-			});
-
-		new Setting(contentEl).setName(t("taskModal.tags")).setDesc(t("taskModal.tagsDesc")).addText((text) => {
-			text.setValue(this.tags).onChange((v) => (this.tags = v));
-		});
-
-		new Setting(contentEl)
-			.setName(t("taskModal.visibleFrom"))
-			.setDesc(t("taskModal.visibleFromDesc"))
-			.addText((text) => {
-				text.inputEl.type = "date";
-				text.setValue(this.visibleFrom).onChange((v) => (this.visibleFrom = v));
-			});
-
-		const isSomedayLane = this.plugin.settings.lanes.find((l) => l.id === this.options.laneId)?.isSomeday;
-		if (isSomedayLane) {
-			new Setting(contentEl)
-				.setName(t("taskModal.revisitOn"))
-				.setDesc(t("taskModal.revisitOnDesc"))
-				.addText((text) => {
-					text.inputEl.type = "date";
-					text.setValue(this.revisitOn).onChange((v) => (this.revisitOn = v));
-				});
-		}
+		this.form.render(contentEl);
 
 		const buttonRow = new Setting(contentEl);
 		buttonRow.addButton((btn) =>
@@ -399,52 +45,14 @@ export class TaskModal extends Modal {
 	}
 
 	private async submit(): Promise<void> {
-		const title = this.title.trim();
-		if (title.length === 0) {
-			new Notice(t("taskModal.titleRequired"));
-			return;
-		}
-		const due = this.combineInputValue(this.dueDate, this.dueTime);
-		const reminderAt = this.combineInputValue(this.reminderDate, this.reminderTime);
-		const tags = this.tags
-			.split(",")
-			.map((t) => t.trim())
-			.filter((t) => t.length > 0);
-		const contexts = this.contexts
-			.split(",")
-			.map((c) => c.trim().replace(/^@/, ""))
-			.filter((c) => c.length > 0);
-
-		await this.options.onSubmit({
-			title,
-			description: this.description,
-			due: due && parseLocalDateTime(due) ? due : undefined,
-			reminderAt: reminderAt && parseLocalDateTime(reminderAt) ? reminderAt : undefined,
-			priority: this.priority,
-			recurrence: this.recurrence,
-			contexts,
-			tags,
-			delegatedTo: this.delegatedTo.trim() || undefined,
-			project: this.project.trim() || undefined,
-			projectFolder: this.projectFolder,
-			person: this.options.showPersonField ? (this.person.trim() || undefined) : undefined,
-			visibleFrom: this.visibleFrom.trim() || undefined,
-			revisitOn: this.revisitOn.trim() || undefined,
-		});
+		const result = this.form.getResult();
+		if (!result) return;
+		await this.options.onSubmit(result);
 		this.close();
 	}
 
-	private getProjectFolders(rootPath: string): string[] {
-		const folder = this.app.vault.getAbstractFileByPath(normalizePath(rootPath));
-		if (!(folder instanceof TFolder)) return [];
-		return folder.children
-			.filter((child): child is TFolder => child instanceof TFolder)
-			.map((child) => child.name)
-			.sort((a, b) => a.localeCompare(b));
-	}
-
 	onClose(): void {
-		this.previewComponent.unload();
+		this.form.dispose();
 		this.contentEl.empty();
 	}
 }

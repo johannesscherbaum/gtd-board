@@ -94,6 +94,12 @@ A customizable GTD-based Kanban board for Obsidian.
   (front matter `today: YYYY-MM-DD`, inline `🎯 YYYY-MM-DD`), so it expires
   by itself the next day. A recurring task that jumps to its next date loses
   the mark.
+- **Detail panel**: on desktop, clicking a card (or "+" in a lane) opens the
+  task form in a panel to the right of the board instead of a dialog, so the
+  board stays visible. Due date and reminder have quick-pick chips (Today,
+  Tomorrow, Next week, None; reminder: In 1 hr., Tomorrow 9:00, Next week,
+  None). Esc or "Cancel" discards changes, Ctrl/Cmd+Enter saves. On mobile
+  the dialog is used as before.
 - **Sidebar**: a toggleable sidebar (panel icon at the left of the toolbar)
   with counters for lists (Today with overdue count, Kanban, Agenda, Week),
   people (from "Delegated to"), projects and origin. Counters always cover

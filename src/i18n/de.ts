@@ -37,6 +37,12 @@ export const de = {
 		dueDate: "Faellig am",
 		dueDateDesc: "Uhrzeit optional (ganztaegig, wenn leer); wenn gesetzt, in 15-Minuten-Schritten.",
 		timeTooltip: "Optional: Uhrzeit (wird auf 15-Minuten-Schritte gerundet)",
+		chipToday: "Heute",
+		chipTomorrow: "Morgen",
+		chipNextWeek: "Naechste Woche",
+		chipIn1h: "In 1 Std.",
+		chipTomorrowMorning: "Morgen 9:00",
+		chipNone: "Keine",
 		recurrence: "Wiederholung",
 		recurrenceDesc:
 			'Beim Verschieben nach "Erledigt" wird automatisch der naechste Termin gesetzt, statt die Aufgabe abzuschliessen. Ohne Faelligkeit wirkungslos.',
@@ -70,6 +76,9 @@ export const de = {
 		visibleFromDesc: "Tickler: Aufgabe bis zu diesem Datum ausblenden. Leer lassen, um sie immer anzuzeigen.",
 		revisitOn: "Wiedervorlage am",
 		revisitOnDesc: "Irgendwann/Vielleicht: an diesem Datum automatisch zurueck in den Eingang verschieben.",
+	},
+	detailPanel: {
+		close: "Panel schliessen (Aenderungen verwerfen)",
 	},
 	dailyReview: {
 		title: "Tagesueberblick",

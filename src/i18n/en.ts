@@ -37,6 +37,12 @@ export const en = {
 		dueDate: "Due on",
 		dueDateDesc: "Time optional (all-day when empty); when set, in 15-minute steps.",
 		timeTooltip: "Optional: time (rounded to 15-minute steps)",
+		chipToday: "Today",
+		chipTomorrow: "Tomorrow",
+		chipNextWeek: "Next week",
+		chipIn1h: "In 1 hr.",
+		chipTomorrowMorning: "Tomorrow 9:00",
+		chipNone: "None",
 		recurrence: "Recurrence",
 		recurrenceDesc:
 			'When moved to "Done", the next due date is set automatically instead of completing the task. Has no effect without a due date.',
@@ -70,6 +76,9 @@ export const en = {
 		visibleFromDesc: "Tickler: hide the task until this date. Leave empty to always show.",
 		revisitOn: "Revisit on",
 		revisitOnDesc: "Someday/Maybe: automatically move back to Inbox on this date for reprocessing.",
+	},
+	detailPanel: {
+		close: "Close panel (discard changes)",
 	},
 	dailyReview: {
 		title: "Daily overview",

@@ -161,6 +161,76 @@ export function hasTimeComponent(value: string | undefined): boolean {
 	return /T\d{2}:\d{2}/.test(value);
 }
 
+/** Zerlegt einen gespeicherten Datums(-zeit)-Wert in Datums- und Uhrzeit-Teil fuer getrennte Eingabefelder. */
+export function splitDateTimeValue(value: string | undefined): [string, string] {
+	if (!value) return ["", ""];
+	if (hasTimeComponent(value)) {
+		const [datePart, timePart] = value.split("T");
+		return [datePart, timePart ?? ""];
+	}
+	return [value, ""];
+}
+
+/** Fuegt Datums- und Uhrzeit-Teil zum Speicherformat zusammen (undefined ohne Datum). */
+export function combineDateTimeValue(datePart: string, timePart: string): string | undefined {
+	if (!datePart) return undefined;
+	return timePart ? `${datePart}T${timePart}` : datePart;
+}
+
+/**
+ * Rundet eine "HH:mm"-Eingabe auf den naechsten 15-Minuten-Schritt. Das step-Attribut von
+ * <input type="time"> wirkt nur auf die Spinner-Pfeile, nicht auf getippte Werte.
+ */
+export function roundToQuarterHour(time: string): string {
+	if (!time) return time;
+	const m = /^(\d{2}):(\d{2})$/.exec(time);
+	if (!m) return time;
+	const totalMinutes = Number(m[1]) * 60 + Number(m[2]);
+	const rounded = Math.round(totalMinutes / 15) * 15;
+	const clamped = ((rounded % (24 * 60)) + 24 * 60) % (24 * 60);
+	return `${String(Math.floor(clamped / 60)).padStart(2, "0")}:${String(clamped % 60).padStart(2, "0")}`;
+}
+
+/** Schnellwahl-Chips fuer die Faelligkeit. */
+export type DueChip = "today" | "tomorrow" | "nextWeek";
+
+/** Datum (YYYY-MM-DD) eines Faelligkeits-Chips: heute, morgen oder Montag der naechsten Woche. */
+export function dueChipDate(chip: DueChip, now: Date = new Date()): string {
+	switch (chip) {
+		case "today":
+			return formatLocalDate(now);
+		case "tomorrow":
+			return formatLocalDate(addDays(now, 1));
+		case "nextWeek":
+			return formatLocalDate(addDays(startOfWeek(now), 7));
+	}
+}
+
+/** Schnellwahl-Chips fuer die Erinnerung. */
+export type ReminderChip = "in1h" | "tomorrowMorning" | "nextWeek";
+
+/**
+ * Datum und Uhrzeit eines Erinnerungs-Chips: in einer Stunde (auf die naechste Viertelstunde
+ * aufgerundet), morgen 09:00 oder Montag der naechsten Woche 09:00.
+ */
+export function reminderChipValue(chip: ReminderChip, now: Date = new Date()): [string, string] {
+	switch (chip) {
+		case "in1h": {
+			const target = new Date(now.getTime() + 60 * 60_000);
+			const minutes = target.getHours() * 60 + target.getMinutes() + (target.getSeconds() > 0 ? 1 : 0);
+			const roundedUp = Math.ceil(minutes / 15) * 15;
+			// Minuten-Ueberlauf (z. B. 24:00) loest der Date-Konstruktor in lokaler Zeit auf.
+			const result = new Date(target.getFullYear(), target.getMonth(), target.getDate(), 0, roundedUp);
+			const pad = (n: number) => String(n).padStart(2, "0");
+			return [formatLocalDate(result), `${pad(result.getHours())}:${pad(result.getMinutes())}`];
+		}
+		case "tomorrowMorning":
+			return [formatLocalDate(addDays(now, 1)), "09:00"];
+		case "nextWeek":
+			return [formatLocalDate(addDays(startOfWeek(now), 7)), "09:00"];
+	}
+}
+
 /** Ermittelt den effektiven Erinnerungszeitpunkt einer Aufgabe (explizit gesetzt oder aus Faelligkeit + Standard-Offset). */
 export function computeEffectiveReminder(
 	task: Pick<GtdTask, "due" | "reminderAt">,
