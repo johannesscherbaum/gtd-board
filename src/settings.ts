@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, SettingDefinitionItem } from "obsidian";
+import { App, PluginSettingTab, SecretComponent, Setting, SettingDefinitionItem } from "obsidian";
 import type GtdBoardPlugin from "./main";
 import { LaneConfig } from "./types";
 import { t } from "./i18n";
@@ -249,6 +249,57 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 						render: (setting) => {
 							setting.addButton((btn) =>
 								btn.setButtonText(t("settings.exportNow")).onClick(() => void this.plugin.exportIcs(true))
+							);
+						},
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: t("settings.meetingsHeading"),
+				desc: t("settings.meetingsDesc"),
+				items: [
+					{
+						name: t("settings.meetingCalendar.name"),
+						desc: t("settings.meetingCalendar.desc"),
+						render: (setting) => {
+							// Nur der Name des Secrets wird gespeichert; die URL bleibt im Secret-Speicher.
+							setting.addComponent((el) =>
+								new SecretComponent(this.app, el).setValue(settings.meetingIcsSecret).onChange(async (value) => {
+									settings.meetingIcsSecret = value;
+									this.plugin.meetings.clearCache();
+									await this.plugin.saveSettings();
+								})
+							);
+						},
+					},
+					{
+						name: t("settings.meetingFolder.name"),
+						desc: t("settings.meetingFolder.desc"),
+						render: (setting) => {
+							setting.addText((text) =>
+								text
+									.setPlaceholder("Meetings")
+									.setValue(settings.meetingFolder)
+									.onChange(async (value) => {
+										settings.meetingFolder = value.trim();
+										await this.plugin.saveSettings();
+									})
+							);
+						},
+					},
+					{
+						name: t("settings.meetingTemplate.name"),
+						desc: t("settings.meetingTemplate.desc"),
+						render: (setting) => {
+							setting.addText((text) =>
+								text
+									.setPlaceholder(t("settings.meetingTemplate.placeholder"))
+									.setValue(settings.meetingTemplatePath)
+									.onChange(async (value) => {
+										settings.meetingTemplatePath = value.trim();
+										await this.plugin.saveSettings();
+									})
 							);
 						},
 					},

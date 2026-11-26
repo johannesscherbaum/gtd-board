@@ -1545,3 +1545,9 @@
 	flex-wrap: wrap;
 	gap: 8px;
 }
+
+/* Auswahl "Neue Meeting-Notiz" */
+.gtd-meeting-suggestion-meta {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}

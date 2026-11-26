@@ -2,6 +2,7 @@ import { App, TFile, TFolder, normalizePath } from "obsidian";
 import { AGENDA_LANE_ID, GtdBoardSettings, GtdTask, LaneConfig, RecurrenceRule, TaskPriority } from "./types";
 import {
 	assignSequentialOrder,
+	bodyStartLine,
 	bounceRecurringInlineLine,
 	buildTaskFileContent,
 	deriveProjectFromPath,
@@ -220,7 +221,9 @@ export class GtdStore {
 		// projectRootFolder (wenn gesetzt) ueberschreibt den Standard-Root watchFolder.
 		const inlineProjectRoot = this.settings.projectRootFolder?.trim() || this.settings.watchFolder;
 		const derivedProject = deriveProjectFromPath(file.path, inlineProjectRoot);
+		const bodyStart = bodyStartLine(lines);
 		lines.forEach((line, index) => {
+			if (index < bodyStart) return;
 			const parsed = parseInlineLine(line, this.settings.lanes);
 			if (!parsed || parsed.title.length === 0) return;
 			// laneId ist die per Tag erkannte "Herkunfts-Lane"; ob die Aufgabe in "Erledigt"
@@ -638,11 +641,12 @@ export class GtdStore {
 	}
 
 	private findInlineLine(lines: string[], task: GtdTask): number {
-		if (task.line !== undefined && task.line < lines.length) {
+		const bodyStart = bodyStartLine(lines);
+		if (task.line !== undefined && task.line >= bodyStart && task.line < lines.length) {
 			const parsed = parseInlineLine(lines[task.line], this.settings.lanes);
 			if (parsed && parsed.title === task.title) return task.line;
 		}
-		for (let i = 0; i < lines.length; i++) {
+		for (let i = bodyStart; i < lines.length; i++) {
 			if (!isCheckboxLine(lines[i])) continue;
 			const parsed = parseInlineLine(lines[i], this.settings.lanes);
 			if (parsed && parsed.title === task.title) return i;
@@ -737,7 +741,7 @@ export class GtdStore {
 			const content = await this.app.vault.read(file);
 			const lines = content.split(/\r?\n/);
 			let changed = false;
-			for (let i = 0; i < lines.length; i++) {
+			for (let i = bodyStartLine(lines); i < lines.length; i++) {
 				const rewritten = bounceRecurringInlineLine(lines[i], this.settings.lanes);
 				if (rewritten === null) continue;
 				lines[i] = rewritten;

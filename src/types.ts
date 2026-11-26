@@ -193,6 +193,15 @@ export interface GtdBoardSettings {
 	lastProjectFilter: string;
 	/** Seitenleiste (Listen, Personen, Projekte, Herkunft) eingeblendet (Desktop). */
 	sidebarVisible: boolean;
+	/**
+	 * Name des Eintrags im Obsidian-Secret-Speicher, der die ICS-URL des Kalenders enthaelt.
+	 * Die URL selbst steht nie in den Einstellungen. Leer = kein Kalender (nur "Ohne Termin").
+	 */
+	meetingIcsSecret: string;
+	/** Ordner fuer neue Meeting-Notizen. */
+	meetingFolder: string;
+	/** Optionale Vorlage (Vault-Pfad) fuer neue Meeting-Notizen; leer = eingebaute Vorlage. */
+	meetingTemplatePath: string;
 }
 
 export const DEFAULT_LANES: LaneConfig[] = [
@@ -231,4 +240,7 @@ export const DEFAULT_SETTINGS: GtdBoardSettings = {
 	lastContextFilter: "",
 	lastProjectFilter: "",
 	sidebarVisible: true,
+	meetingIcsSecret: "",
+	meetingFolder: "Meetings",
+	meetingTemplatePath: "",
 };

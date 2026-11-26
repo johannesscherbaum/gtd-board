@@ -9,6 +9,7 @@ export const en = {
 		exportIcs: "Run ICS export now",
 		weeklyReview: "Start weekly review",
 		dailyReview: "Open daily overview",
+		newMeetingNote: "New meeting note",
 	},
 	ribbon: {
 		openBoard: "Open GTD board",
@@ -212,6 +213,22 @@ export const en = {
 			desc: "Folder whose immediate subfolders serve as project names (e.g. 'Projects'). When set, the project is derived from this folder for every task — file tasks and inline checkboxes alike. Empty = derive relative to task folder / watch folder (existing behaviour).",
 			placeholder: "e.g. Projects",
 		},
+		meetingsHeading: "Meeting notes",
+		meetingsDesc:
+			"Command \"New meeting note\": pick one of today's events from your calendar (or none) and get a note from the template, opened in the normal editor. Existing notes, including those of the Meetings Plus plugin, are found again instead of duplicated.",
+		meetingCalendar: {
+			name: "Calendar (ICS URL)",
+			desc: "Stored in Obsidian's secret storage, never in the plugin settings or the vault. Choose or create a secret holding the calendar's ICS address (e.g. the Outlook publish link).",
+		},
+		meetingFolder: {
+			name: "Meeting notes folder",
+			desc: "Folder for new meeting notes.",
+		},
+		meetingTemplate: {
+			name: "Template",
+			desc: "Optional note used as template. Placeholders: {{title}}, {{date}}, {{time}}, {{location}}, {{attendees}}. Empty = built-in template.",
+			placeholder: "e.g. Templates/Meeting",
+		},
 		agendaHeading: "Agendas",
 		agendaEnable: {
 			name: "Show agendas lane",
@@ -384,6 +401,23 @@ export const en = {
 		high: "High",
 		medium: "Medium",
 		low: "Low",
+	},
+	meetings: {
+		placeholder: "Pick an event or type a title for a note without event...",
+		free: "Without event",
+		freeWithTitle: "Without event: {title}",
+		freeHint: "New meeting note without calendar event",
+		hasNote: "note exists",
+		allDay: "all day",
+		defaultTitle: "Meeting",
+		location: "Location",
+		attendees: "Attendees",
+		notesHeading: "Notes",
+		tasksHeading: "Tasks",
+		fetchFailed: "Calendar could not be loaded. Only notes without event are possible.",
+		parseFailed: "Calendar could not be read (not a valid ICS file).",
+		templateMissing: "Template \"{path}\" not found, using the built-in template.",
+		createFailed: "Meeting note could not be created, see console.",
 	},
 	origin: {
 		planner: "Planner",

@@ -112,6 +112,18 @@ A customizable GTD-based Kanban board for Obsidian.
   all open tasks; clicking a person, project or origin filters the board,
   a second click clears the filter. On mobile the sidebar opens on top of the
   board.
+- **Meeting notes**: the command "New meeting note" lists today's events
+  from your calendar (ICS, parsed with ical.js incl. recurring series,
+  moved/cancelled occurrences and time zones) plus "Without event" (the
+  typed text becomes the title). Picking an event opens its existing note
+  or creates one from your template (Settings → "Meeting notes"; placeholders
+  `{{title}}`, `{{date}}`, `{{time}}`, `{{location}}`, `{{attendees}}`) in
+  the normal editor. Notes are found again via front matter `meeting_uid`
+  (plus `meeting_recurrence_id` for series); notes of the Meetings Plus
+  plugin are recognized via `meeting_dedup_key`. The calendar URL lives in
+  Obsidian's secret storage only, it is never logged or written to the
+  vault. Front matter lists such as Meetings Plus' `open_tasks` /
+  `open_questions` are never read as tasks (no front matter line is).
 - **Origin (Planner, meetings)**: file tasks may carry the optional front
   matter fields `source` (e.g. `planner`, `meeting`), `sourceLabel`,
   `sourceUrl` and `plannerId`. The card shows them as a small badge; with a

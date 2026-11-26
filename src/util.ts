@@ -475,6 +475,19 @@ export function parseInlineLine(line: string, lanes: LaneConfig[]): ParsedInline
 	return { indent, done, title, laneId, laneTag, due, priority, recurrence, tags, contexts, delegatedTo, project, today };
 }
 
+/**
+ * Index der ersten Zeile nach dem Frontmatter-Block ("---" ... "---" ganz am Dateianfang),
+ * 0 ohne Frontmatter. Zeilen davor sind nie Inline-Aufgaben - z. B. die Listen open_tasks /
+ * open_questions von Meetings Plus, die wie Checkboxen aussehen koennen.
+ */
+export function bodyStartLine(lines: string[]): number {
+	if (lines.length === 0 || lines[0].trim() !== "---") return 0;
+	for (let i = 1; i < lines.length; i++) {
+		if (lines[i].trim() === "---") return i + 1;
+	}
+	return 0;
+}
+
 /** Prueft, ob eine Zeile ueberhaupt eine Checkbox-Zeile ist (auch ohne Lane-Zuordnung). */
 export function isCheckboxLine(line: string): boolean {
 	return CHECKBOX_RE.test(line);

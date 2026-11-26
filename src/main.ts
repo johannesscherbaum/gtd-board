@@ -6,6 +6,7 @@ import { GTD_BOARD_VIEW_TYPE, GtdBoardView } from "./view";
 import { ReminderScheduler } from "./reminders";
 import { buildIcsContent, isPathInFolder, nowISO } from "./util";
 import { DailyReviewModal, QuickCaptureModal, ReviewModal } from "./modals";
+import { MeetingService, openNewMeetingNote } from "./meetings";
 import { detectAndSetLocale, t } from "./i18n";
 
 /** Wie oft (Millisekunden) im Hintergrund auf faellige Archivierung/Wiederholungen geprueft wird. */
@@ -14,6 +15,7 @@ const MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 export default class GtdBoardPlugin extends Plugin {
 	settings: GtdBoardSettings = DEFAULT_SETTINGS;
 	store!: GtdStore;
+	meetings!: MeetingService;
 	private reminderScheduler!: ReminderScheduler;
 	// Wiederkehrende Aufgaben, die direkt in der Notiz (nicht per Drag & Drop) abgehakt wurden,
 	// sollen zeitnah auf ihren naechsten Termin springen - deshalb bei jeder relevanten
@@ -28,6 +30,7 @@ export default class GtdBoardPlugin extends Plugin {
 		await this.loadSettings();
 
 		this.store = new GtdStore(this.app, () => this.settings);
+		this.meetings = new MeetingService(this.app, this);
 
 		this.registerView(GTD_BOARD_VIEW_TYPE, (leaf) => new GtdBoardView(leaf, this));
 
@@ -65,6 +68,12 @@ export default class GtdBoardPlugin extends Plugin {
 			id: "gtd-daily-review",
 			name: t("commands.dailyReview"),
 			callback: () => void this.openDailyReview(),
+		});
+
+		this.addCommand({
+			id: "gtd-new-meeting-note",
+			name: t("commands.newMeetingNote"),
+			callback: () => void openNewMeetingNote(this.app, this.meetings),
 		});
 
 		this.addSettingTab(new GtdBoardSettingTab(this.app, this));
@@ -222,6 +231,15 @@ export default class GtdBoardPlugin extends Plugin {
 		}
 		if (typeof this.settings.lastProjectFilter !== "string") {
 			this.settings.lastProjectFilter = DEFAULT_SETTINGS.lastProjectFilter;
+		}
+		if (typeof this.settings.meetingIcsSecret !== "string") {
+			this.settings.meetingIcsSecret = DEFAULT_SETTINGS.meetingIcsSecret;
+		}
+		if (typeof this.settings.meetingFolder !== "string" || this.settings.meetingFolder.trim().length === 0) {
+			this.settings.meetingFolder = DEFAULT_SETTINGS.meetingFolder;
+		}
+		if (typeof this.settings.meetingTemplatePath !== "string") {
+			this.settings.meetingTemplatePath = DEFAULT_SETTINGS.meetingTemplatePath;
 		}
 	}
 

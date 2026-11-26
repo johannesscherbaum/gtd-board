@@ -9,6 +9,7 @@ export const de = {
 		exportIcs: "ICS-Export jetzt ausfuehren",
 		weeklyReview: "Wochenrueckblick starten",
 		dailyReview: "Tagesueberblick oeffnen",
+		newMeetingNote: "Neue Meeting-Notiz",
 	},
 	ribbon: {
 		openBoard: "GTD Board oeffnen",
@@ -213,6 +214,22 @@ export const de = {
 			desc: "Ordner, dessen unmittelbare Unterordner als Projektnamen gelten (z. B. 'Projects'). Wenn gesetzt, wird das Projekt fuer jede Aufgabe daraus abgeleitet – unabhaengig davon, ob sie eine Datei-Aufgabe oder eine Inline-Checkbox ist. Leer = Ableitung relativ zu Aufgaben-Ordner bzw. Ordner (bisheriges Verhalten).",
 			placeholder: "z. B. Projects",
 		},
+		meetingsHeading: "Meeting-Notizen",
+		meetingsDesc:
+			"Befehl \"Neue Meeting-Notiz\": einen Termin von heute aus dem Kalender waehlen (oder keinen) und eine Notiz aus der Vorlage erhalten, geoeffnet im normalen Editor. Vorhandene Notizen, auch die des Plugins Meetings Plus, werden wiedergefunden statt doppelt angelegt.",
+		meetingCalendar: {
+			name: "Kalender (ICS-URL)",
+			desc: "Liegt im Secret-Speicher von Obsidian, nie in den Plugin-Einstellungen oder im Vault. Ein Secret mit der ICS-Adresse des Kalenders waehlen oder anlegen (z. B. den Veroeffentlichungs-Link aus Outlook).",
+		},
+		meetingFolder: {
+			name: "Ordner fuer Meeting-Notizen",
+			desc: "Ordner, in dem neue Meeting-Notizen angelegt werden.",
+		},
+		meetingTemplate: {
+			name: "Vorlage",
+			desc: "Optionale Notiz als Vorlage. Platzhalter: {{title}}, {{date}}, {{time}}, {{location}}, {{attendees}}. Leer = eingebaute Vorlage.",
+			placeholder: "z. B. Vorlagen/Meeting",
+		},
 		agendaHeading: "Agendas",
 		agendaEnable: {
 			name: "Agendas-Lane anzeigen",
@@ -385,6 +402,23 @@ export const de = {
 		high: "Hoch",
 		medium: "Mittel",
 		low: "Niedrig",
+	},
+	meetings: {
+		placeholder: "Termin waehlen oder Titel fuer eine Notiz ohne Termin tippen...",
+		free: "Ohne Termin",
+		freeWithTitle: "Ohne Termin: {title}",
+		freeHint: "Neue Meeting-Notiz ohne Kalendertermin",
+		hasNote: "Notiz vorhanden",
+		allDay: "ganztaegig",
+		defaultTitle: "Meeting",
+		location: "Ort",
+		attendees: "Teilnehmer",
+		notesHeading: "Notizen",
+		tasksHeading: "Aufgaben",
+		fetchFailed: "Kalender konnte nicht geladen werden. Nur Notizen ohne Termin moeglich.",
+		parseFailed: "Kalender konnte nicht gelesen werden (keine gueltige ICS-Datei).",
+		templateMissing: "Vorlage \"{path}\" nicht gefunden, eingebaute Vorlage wird verwendet.",
+		createFailed: "Meeting-Notiz konnte nicht angelegt werden, siehe Konsole.",
 	},
 	origin: {
 		planner: "Planner",
