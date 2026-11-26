@@ -88,6 +88,12 @@ A customizable GTD-based Kanban board for Obsidian.
   shows all open tasks across lanes as a flat list, always sorted ascending
   by due date (tasks without a due date at the end); each card carries a
   badge with its actual lane.
+- **Today focus**: the "Today" view is a smart list of everything due today
+  or marked for today, with a separate "Overdue" block on top. Mark any task
+  for today via its context menu ("Mark for today"). The mark stores a date
+  (front matter `today: YYYY-MM-DD`, inline `🎯 YYYY-MM-DD`), so it expires
+  by itself the next day. A recurring task that jumps to its next date loses
+  the mark.
 - **Bulk actions**: the "Multi-select" button shows a checkbox on every
   card; selected tasks can be moved together to a target lane or (with a
   confirmation prompt) deleted together.

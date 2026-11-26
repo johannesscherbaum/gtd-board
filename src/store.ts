@@ -18,6 +18,7 @@ import {
 	parseTaskFile,
 	rewriteInlineLineForLane,
 	sanitizeFileName,
+	setInlineTodayMarker,
 	toRecurrenceRule,
 	toTaskPriority,
 } from "./util";
@@ -188,6 +189,7 @@ export class GtdStore {
 			lastTouched: this.touchedAt(id, file.stat.mtime),
 			visibleFrom: typeof frontmatter.visibleFrom === "string" ? frontmatter.visibleFrom : undefined,
 			revisitOn: typeof frontmatter.revisitOn === "string" ? frontmatter.revisitOn : undefined,
+			today: typeof frontmatter.today === "string" ? frontmatter.today : undefined,
 		};
 		this.fileCache.set(cacheKey, { mtime: file.stat.mtime, task });
 		return task;
@@ -239,6 +241,7 @@ export class GtdStore {
 				delegatedTo: parsed.delegatedTo,
 				// Explizit gesetztes Projekt (+Marker) gewinnt; sonst Ordner-Ableitung.
 				project: parsed.project ?? derivedProject,
+				today: parsed.today,
 				filePath: file.path,
 				line: index,
 				order: index,
@@ -444,6 +447,8 @@ export class GtdStore {
 				fm.due = nextOccurrence(fm.due as string, recurrence) ?? fm.due;
 				fm.done = false;
 				delete fm.doneAt;
+				// Fuer heute erledigt: Heute-Markierung entfaellt mit dem Sprung auf den naechsten Termin.
+				delete fm.today;
 			} else if (newLane?.isDone) {
 				fm.done = true;
 				fm.doneAt = nowISO();
@@ -483,6 +488,7 @@ export class GtdStore {
 						fm.due = nextOccurrence(fm.due as string, recurrence) ?? fm.due;
 						fm.done = false;
 						delete fm.doneAt;
+						delete fm.today;
 						fm.lane = task.laneId;
 					} else if (targetLane?.isDone) {
 						fm.done = true;
@@ -577,12 +583,37 @@ export class GtdStore {
 				project: (fields.project ?? task.project)?.trim() || undefined,
 				visibleFrom: (fields.visibleFrom ?? task.visibleFrom)?.trim() || undefined,
 				revisitOn: (fields.revisitOn ?? task.revisitOn)?.trim() || undefined,
+				today: task.today,
 				created: nowISO(),
 				order: Date.now(),
 			},
 			fields.description
 		);
 		return this.app.vault.create(path, content);
+	}
+
+	/**
+	 * Heute-Fokus: markiert eine Aufgabe fuer das uebergebene Datum (YYYY-MM-DD) oder entfernt
+	 * die Markierung (undefined). Datei-Aufgaben ueber das Frontmatter-Feld `today`, Inline-
+	 * Aufgaben ueber den Marker "🎯 YYYY-MM-DD" in der Quellzeile. Sonst wird nichts geaendert.
+	 */
+	async setTodayMark(task: GtdTask, date: string | undefined): Promise<void> {
+		const file = this.app.vault.getAbstractFileByPath(task.filePath);
+		if (!(file instanceof TFile)) return;
+		if (task.source === "file") {
+			await this.app.fileManager.processFrontMatter(file, (fm) => {
+				if (date) fm.today = date;
+				else delete fm.today;
+			});
+		} else {
+			const content = await this.app.vault.read(file);
+			const lines = content.split(/\r?\n/);
+			const line = this.findInlineLine(lines, task);
+			if (line === -1) return;
+			lines[line] = setInlineTodayMarker(lines[line], date);
+			await this.app.vault.modify(file, lines.join("\n"));
+		}
+		this.invalidateCacheFor(file.path);
 	}
 
 	/** Loescht eine Aufgabe: bei Datei-Aufgaben die Datei, bei Inline-Aufgaben nur die Zeile. */
@@ -688,6 +719,7 @@ export class GtdStore {
 			frontmatter.due = nextDue;
 			frontmatter.done = false;
 			frontmatter.doneAt = undefined;
+			frontmatter.today = undefined;
 			await this.app.vault.modify(file, buildTaskFileContent(frontmatter, body));
 			advanced++;
 		}

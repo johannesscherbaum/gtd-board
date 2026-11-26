@@ -253,8 +253,9 @@ export const en = {
 			all: "All projects",
 		},
 		viewMode: {
-			title: "View: Kanban board, agenda list, week calendar, projects, or contexts",
+			title: "View: Kanban board, today, agenda list, week calendar, projects, or contexts",
 			board: "Kanban",
+			today: "Today",
 			agenda: "Agenda",
 			week: "Week",
 			projects: "Projects",
@@ -286,6 +287,12 @@ export const en = {
 		},
 		agenda: {
 			empty: "No open tasks.",
+		},
+		today: {
+			overdue: "Overdue",
+			today: "Today",
+			empty: "Nothing due or marked for today.",
+			emptyToday: "Nothing else due or marked for today.",
 		},
 		projects: {
 			empty: "No open tasks.",
@@ -332,10 +339,14 @@ export const en = {
 			processTitle: "Process (GTD: clarify & assign to lane)",
 			editDueTitle: "Click to edit due date",
 			revisitOnBadge: "Revisit: {date}",
+			todayBadge: "🎯 Today",
+			todayBadgeTitle: "Marked for today (expires tomorrow)",
 		},
 		contextMenu: {
 			edit: "Edit",
 			openFile: "Open file",
+			markToday: "Mark for today",
+			unmarkToday: "Remove today mark",
 			delete: "Delete",
 		},
 		bulk: {

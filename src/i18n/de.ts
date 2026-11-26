@@ -254,8 +254,9 @@ export const de = {
 			all: "Alle Projekte",
 		},
 		viewMode: {
-			title: "Ansicht: Kanban-Board, Agenda-Liste, Wochenkalender, Projekte oder Kontexte",
+			title: "Ansicht: Kanban-Board, Heute, Agenda-Liste, Wochenkalender, Projekte oder Kontexte",
 			board: "Kanban",
+			today: "Heute",
 			agenda: "Agenda",
 			week: "Woche",
 			projects: "Projekte",
@@ -287,6 +288,12 @@ export const de = {
 		},
 		agenda: {
 			empty: "Keine offenen Aufgaben.",
+		},
+		today: {
+			overdue: "Ueberfaellig",
+			today: "Heute",
+			empty: "Nichts faellig oder fuer heute markiert.",
+			emptyToday: "Sonst nichts faellig oder fuer heute markiert.",
 		},
 		projects: {
 			empty: "Keine offenen Aufgaben.",
@@ -333,10 +340,14 @@ export const de = {
 			processTitle: "Verarbeiten (GTD: klaeren und einer Lane zuordnen)",
 			editDueTitle: "Klicken, um Faelligkeit direkt zu aendern",
 			revisitOnBadge: "Wiedervorlage: {date}",
+			todayBadge: "🎯 Heute",
+			todayBadgeTitle: "Fuer heute markiert (verfaellt morgen)",
 		},
 		contextMenu: {
 			edit: "Bearbeiten",
 			openFile: "Datei oeffnen",
+			markToday: "Fuer heute markieren",
+			unmarkToday: "Markierung fuer heute entfernen",
 			delete: "Loeschen",
 		},
 		bulk: {

@@ -105,6 +105,12 @@ export interface GtdTask {
 	 * automatisch zurueck in die Inbox-Lane verschoben, um erneut verarbeitet zu werden.
 	 */
 	revisitOn?: string;
+	/**
+	 * Heute-Fokus: Datum (YYYY-MM-DD), an dem die Aufgabe manuell "fuer heute" markiert wurde.
+	 * Gilt nur an genau diesem Tag und verfaellt danach von selbst (Frontmatter `today`,
+	 * inline "🎯 YYYY-MM-DD").
+	 */
+	today?: string;
 }
 
 export interface GtdBoardSettings {

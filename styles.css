@@ -112,6 +112,10 @@
 	overflow-y: auto;
 }
 
+.gtd-board.gtd-board-today-mode {
+	overflow-y: auto;
+}
+
 .gtd-board.gtd-board-week-mode {
 	overflow: hidden;
 	align-items: stretch;
@@ -233,6 +237,54 @@
 }
 
 .gtd-agenda-empty {
+	color: var(--text-muted);
+	text-align: center;
+	padding: 24px;
+}
+
+/* Smart-Liste "Heute": Block "Ueberfaellig" oben, darunter heute faellig/markiert */
+.gtd-today {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	width: 100%;
+	max-width: 640px;
+	margin: 0 auto;
+	padding: 8px 0;
+}
+
+.gtd-today-section {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.gtd-today-section-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-weight: 600;
+	padding-bottom: 4px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.gtd-today-section-overdue .gtd-today-section-header {
+	color: var(--text-error);
+}
+
+.gtd-today-section-count {
+	color: var(--text-muted);
+	font-weight: 400;
+	font-size: var(--font-ui-smaller);
+}
+
+.gtd-today-section-body {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.gtd-today-empty {
 	color: var(--text-muted);
 	text-align: center;
 	padding: 24px;
@@ -845,6 +897,11 @@
 
 .gtd-card-tag-delegate {
 	color: var(--text-muted);
+}
+
+.gtd-card-tag-today {
+	color: var(--text-accent);
+	font-weight: 600;
 }
 
 .gtd-card-tag-project {

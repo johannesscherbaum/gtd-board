@@ -3,6 +3,7 @@ import type GtdBoardPlugin from "./main";
 import { AGENDA_LANE_ID, GtdTask, LaneConfig, SortMode } from "./types";
 import {
 	addDays,
+	buildTodayFocus,
 	countSubtasks,
 	daysSince,
 	parseSubtaskItems,
@@ -25,7 +26,7 @@ import { ProcessModal, TaskModal, confirmDialog } from "./modals";
 
 export const GTD_BOARD_VIEW_TYPE = "gtd-board-view";
 
-type ViewMode = "board" | "agenda" | "week" | "projects" | "contexts";
+type ViewMode = "board" | "today" | "agenda" | "week" | "projects" | "contexts";
 
 function sortLabel(mode: SortMode): string {
 	switch (mode) {
@@ -85,7 +86,7 @@ export class GtdBoardView extends ItemView {
 
 	async onOpen(): Promise<void> {
 		const s = this.plugin.settings;
-		const validModes: ViewMode[] = ["board", "agenda", "week", "projects", "contexts"];
+		const validModes: ViewMode[] = ["board", "today", "agenda", "week", "projects", "contexts"];
 		if (validModes.includes(s.lastViewMode as ViewMode)) {
 			this.viewMode = s.lastViewMode as ViewMode;
 		}
@@ -249,6 +250,7 @@ export class GtdBoardView extends ItemView {
 		const viewModeSelect = viewModeGroup.createEl("select", { cls: "gtd-board-viewmode" });
 		viewModeSelect.setAttribute("title", t("view.viewMode.title"));
 		viewModeSelect.createEl("option", { text: t("view.viewMode.board"), value: "board" });
+		viewModeSelect.createEl("option", { text: t("view.viewMode.today"), value: "today" });
 		viewModeSelect.createEl("option", { text: t("view.viewMode.agenda"), value: "agenda" });
 		viewModeSelect.createEl("option", { text: t("view.viewMode.week"), value: "week" });
 		viewModeSelect.createEl("option", { text: t("view.viewMode.projects"), value: "projects" });
@@ -326,7 +328,11 @@ export class GtdBoardView extends ItemView {
 		this.boardEl.removeClass("gtd-board-week-mode");
 		this.boardEl.removeClass("gtd-board-projects-mode");
 		this.boardEl.removeClass("gtd-board-contexts-mode");
-		if (this.viewMode === "agenda") {
+		this.boardEl.removeClass("gtd-board-today-mode");
+		if (this.viewMode === "today") {
+			this.boardEl.addClass("gtd-board-today-mode");
+			this.boardEl.appendChild(this.renderToday());
+		} else if (this.viewMode === "agenda") {
 			this.boardEl.addClass("gtd-board-agenda-mode");
 			this.boardEl.appendChild(this.renderAgenda());
 		} else if (this.viewMode === "week") {
@@ -347,6 +353,39 @@ export class GtdBoardView extends ItemView {
 			}
 		}
 		this.updateBulkBar();
+	}
+
+	/**
+	 * Smart-Liste "Heute": oben ein eigener Block mit allen ueberfaelligen Aufgaben, darunter
+	 * alles, was heute faellig ist oder manuell fuer heute markiert wurde (siehe buildTodayFocus).
+	 */
+	private renderToday(): HTMLElement {
+		const container = createDiv({ cls: "gtd-today" });
+		const focus = buildTodayFocus(this.tasks.filter((t) => this.matchesFilter(t)));
+		if (focus.overdue.length === 0 && focus.today.length === 0) {
+			container.createDiv({ cls: "gtd-today-empty", text: t("view.today.empty") });
+			return container;
+		}
+		if (focus.overdue.length > 0) {
+			this.renderTodaySection(container, t("view.today.overdue"), focus.overdue, "gtd-today-section-overdue");
+		}
+		this.renderTodaySection(container, t("view.today.today"), focus.today, "gtd-today-section-today");
+		return container;
+	}
+
+	private renderTodaySection(container: HTMLElement, title: string, tasks: GtdTask[], cls: string): void {
+		const section = container.createDiv({ cls: ["gtd-today-section", cls] });
+		const header = section.createDiv({ cls: "gtd-today-section-header" });
+		header.createSpan({ cls: "gtd-today-section-title", text: title });
+		header.createSpan({ cls: "gtd-today-section-count", text: String(tasks.length) });
+		const body = section.createDiv({ cls: "gtd-today-section-body" });
+		if (tasks.length === 0) {
+			body.createDiv({ cls: "gtd-today-empty", text: t("view.today.emptyToday") });
+			return;
+		}
+		for (const task of tasks) {
+			body.appendChild(this.renderCard(task, { showHomeLaneBadge: true }));
+		}
 	}
 
 	/** Agenda-Ansicht: alle offenen Aufgaben ueber alle Lanes hinweg, flach und nach Faelligkeit sortiert. */
@@ -1249,7 +1288,10 @@ export class GtdBoardView extends ItemView {
 		if (isStaleDelegate) card.addClass("gtd-card-stale");
 		if (isStaleSomeday) card.addClass("gtd-card-stale");
 
+		const isMarkedToday = !task.done && task.today === formatLocalDate(new Date());
+
 		if (
+			isMarkedToday ||
 			task.contexts.length > 0 ||
 			task.tags.length > 0 ||
 			task.delegatedTo ||
@@ -1259,6 +1301,13 @@ export class GtdBoardView extends ItemView {
 			showPerson
 		) {
 			const tagsEl = card.createDiv({ cls: "gtd-card-tags" });
+			if (isMarkedToday) {
+				tagsEl.createSpan({
+					cls: "gtd-card-tag gtd-card-tag-today",
+					text: t("view.card.todayBadge"),
+					attr: { title: t("view.card.todayBadgeTitle") },
+				});
+			}
 			if (showPerson) {
 				tagsEl.createSpan({
 					cls: "gtd-card-tag gtd-card-tag-person",
@@ -1419,6 +1468,16 @@ export class GtdBoardView extends ItemView {
 					})
 			);
 		}
+		if (!task.done) {
+			const todayStr = formatLocalDate(new Date());
+			const marked = task.today === todayStr;
+			menu.addItem((item) =>
+				item
+					.setTitle(marked ? t("view.contextMenu.unmarkToday") : t("view.contextMenu.markToday"))
+					.setIcon(marked ? "circle-off" : "target")
+					.onClick(() => void this.toggleTodayMark(task))
+			);
+		}
 		menu.addItem((item) =>
 			item
 				.setTitle(t("view.contextMenu.delete"))
@@ -1426,6 +1485,13 @@ export class GtdBoardView extends ItemView {
 				.onClick(() => void this.deleteTask(task))
 		);
 		menu.showAtMouseEvent(evt);
+	}
+
+	/** Setzt oder entfernt die Heute-Markierung (Datum von heute) und zeichnet das Board neu. */
+	private async toggleTodayMark(task: GtdTask): Promise<void> {
+		const todayStr = formatLocalDate(new Date());
+		await this.plugin.store.setTodayMark(task, task.today === todayStr ? undefined : todayStr);
+		await this.refresh();
 	}
 
 	/** Lane, in der eine Aufgabe tatsaechlich angezeigt wird: erledigte Aufgaben immer in der Erledigt-Lane. */

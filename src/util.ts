@@ -26,6 +26,7 @@ export interface TaskFrontmatter {
 	delegatedTo?: string;
 	project?: string;
 	person?: string;
+	today?: string;
 	order?: number;
 	created?: string;
 	[key: string]: unknown;
@@ -180,6 +181,9 @@ const DELEGATE_MARKER = "👤";
 const DELEGATE_RE = /👤\s*([\p{L}0-9_-]+)/u;
 // Projekt (todo.txt-Konvention: "+Projekt" neben "@Kontext"). Ein Projekt pro Aufgabe.
 const PROJECT_RE = /\+([\p{L}0-9_-]+)/u;
+// Heute-Markierung: Datum, an dem die Aufgabe "fuer heute" markiert wurde (verfaellt am Folgetag).
+const TODAY_MARKER = "🎯";
+const TODAY_RE = /🎯\s*(\d{4}-\d{2}-\d{2})/u;
 // Relative Datumswoerter fuer die Natural-Language-Schnellerfassung (📅 heute/morgen/uebermorgen
 // statt eines festen YYYY-MM-DD) - Tage-Offset relativ zu "heute".
 const RELATIVE_DATE_OFFSETS: Record<string, number> = {
@@ -294,6 +298,8 @@ export interface ParsedInlineTask {
 	delegatedTo?: string;
 	/** Projekt (ohne +Marker), falls vorhanden. */
 	project?: string;
+	/** Datum der Heute-Markierung (ohne 🎯-Marker), falls vorhanden. */
+	today?: string;
 }
 
 /** Parst eine einzelne Zeile als Inline-Checkbox-Aufgabe, falls es sich um eine solche handelt. */
@@ -350,7 +356,11 @@ export function parseInlineLine(line: string, lanes: LaneConfig[]): ParsedInline
 	const projectMatch = PROJECT_RE.exec(rest);
 	const project = projectMatch ? projectMatch[1] : undefined;
 
+	const todayMatch = TODAY_RE.exec(rest);
+	const today = todayMatch ? todayMatch[1] : undefined;
+
 	let title = rest
+		.replace(TODAY_RE, "")
 		.replace(TAG_RE, "")
 		.replace(CONTEXT_RE, "")
 		.replace(DATE_RE, "")
@@ -362,12 +372,70 @@ export function parseInlineLine(line: string, lanes: LaneConfig[]): ParsedInline
 		.replace(/\s+/g, " ")
 		.trim();
 
-	return { indent, done, title, laneId, laneTag, due, priority, recurrence, tags, contexts, delegatedTo, project };
+	return { indent, done, title, laneId, laneTag, due, priority, recurrence, tags, contexts, delegatedTo, project, today };
 }
 
 /** Prueft, ob eine Zeile ueberhaupt eine Checkbox-Zeile ist (auch ohne Lane-Zuordnung). */
 export function isCheckboxLine(line: string): boolean {
 	return CHECKBOX_RE.test(line);
+}
+
+/**
+ * Setzt (date) oder entfernt (undefined) die Heute-Markierung "🎯 YYYY-MM-DD" einer Inline-
+ * Checkbox-Zeile. Alle anderen Bestandteile der Zeile bleiben zeichengenau erhalten; eine
+ * Block-ID am Zeilenende ("^abc") bleibt am Ende stehen.
+ */
+export function setInlineTodayMarker(line: string, date: string | undefined): string {
+	if (!CHECKBOX_RE.test(line)) return line;
+	const stripped = line.replace(/[ \t]*🎯\s*\d{4}-\d{2}-\d{2}/u, "");
+	if (!date) return stripped;
+	const blockId = /(\s\^[A-Za-z0-9-]+)\s*$/.exec(stripped);
+	if (blockId) {
+		const head = stripped.slice(0, blockId.index).replace(/\s+$/, "");
+		return `${head} ${TODAY_MARKER} ${date}${blockId[1]}`;
+	}
+	return `${stripped.replace(/\s+$/, "")} ${TODAY_MARKER} ${date}`;
+}
+
+/** Heute-Fokus: offene Aufgaben, die ueberfaellig sind, und solche, die heute anstehen. */
+export interface TodayFocus {
+	/** Faelligkeitstag liegt vor heute (unabhaengig von einer Heute-Markierung). */
+	overdue: GtdTask[];
+	/** Heute faellig oder fuer heute markiert (Markierungsdatum = heute). */
+	today: GtdTask[];
+}
+
+/**
+ * Stellt die Smart-Liste "Heute" zusammen: heute faellig, ueberfaellig oder manuell fuer heute
+ * markiert. Erledigte Aufgaben zaehlen nie. Eine Markierung von gestern zaehlt nicht mehr.
+ * Ueberfaellige nach Faelligkeit (aelteste zuerst); "Heute" erst Termine mit Uhrzeit
+ * (chronologisch), dann nach Prioritaet.
+ */
+export function buildTodayFocus(tasks: GtdTask[], now: Date = new Date()): TodayFocus {
+	const todayStr = formatLocalDate(now);
+	const overdue: GtdTask[] = [];
+	const today: GtdTask[] = [];
+	for (const task of tasks) {
+		if (task.done) continue;
+		const dueDay = task.due?.slice(0, 10);
+		if (dueDay && dueDay < todayStr) overdue.push(task);
+		else if (dueDay === todayStr || task.today === todayStr) today.push(task);
+	}
+	overdue.sort((a, b) => (a.due ?? "").localeCompare(b.due ?? "") || priorityRank(a.priority) - priorityRank(b.priority));
+	// Uhrzeit-Schluessel nur fuer heutige Termine mit Uhrzeit; ohne Uhrzeit ans Ende.
+	const timeKey = (task: GtdTask) =>
+		task.due && task.due.slice(0, 10) === todayStr && hasTimeComponent(task.due) ? task.due : undefined;
+	today.sort((a, b) => {
+		const ak = timeKey(a);
+		const bk = timeKey(b);
+		if (ak !== bk) {
+			if (ak === undefined) return 1;
+			if (bk === undefined) return -1;
+			return ak < bk ? -1 : 1;
+		}
+		return priorityRank(a.priority) - priorityRank(b.priority);
+	});
+	return { overdue, today };
 }
 
 /**
@@ -430,6 +498,9 @@ export function rewriteInlineLineForLane(line: string, lanes: LaneConfig[], newL
 	const recurrencePart = parsed.recurrence ? `${RECURRENCE_MARKER} ${RECURRENCE_WORDS[parsed.recurrence]}` : "";
 	const delegatePart = parsed.delegatedTo ? `${DELEGATE_MARKER} ${parsed.delegatedTo}` : "";
 	const projectPart = parsed.project ? `+${parsed.project}` : "";
+	// Springt eine wiederkehrende Aufgabe auf ihren naechsten Termin, ist sie fuer heute erledigt:
+	// die Heute-Markierung entfaellt dann, sonst bleibt sie unveraendert stehen.
+	const todayPart = parsed.today && !isRecurringBounce ? `${TODAY_MARKER} ${parsed.today}` : "";
 
 	if (newLane.isDone) {
 		const tagPart = parsed.tags.map((t) => `#${t}`).join(" ");
@@ -442,6 +513,7 @@ export function rewriteInlineLineForLane(line: string, lanes: LaneConfig[], newL
 			recurrencePart,
 			tagPart,
 			datePart,
+			todayPart,
 		].filter((p) => p.length > 0);
 		return `${parsed.indent}[${checkedMark}] ${pieces.join(" ")}`;
 	}
@@ -458,6 +530,7 @@ export function rewriteInlineLineForLane(line: string, lanes: LaneConfig[], newL
 		recurrencePart,
 		tagPart,
 		datePart,
+		todayPart,
 	].filter((p) => p.length > 0);
 	return `${parsed.indent}[ ] ${pieces.join(" ")}`;
 }
@@ -465,7 +538,7 @@ export function rewriteInlineLineForLane(line: string, lanes: LaneConfig[], newL
 /**
  * Baut die Zeile einer erledigten, wiederkehrenden Inline-Aufgabe neu auf: Haken entfernen,
  * Faelligkeit auf den naechsten Termin setzen. Lane-Tag und alle anderen Bestandteile bleiben
- * unveraendert. Wird verwendet, wenn eine wiederkehrende Aufgabe direkt in der Notiz (nicht
+ * unveraendert, nur eine Heute-Markierung entfaellt (die Aufgabe ist fuer heute erledigt). Wird verwendet, wenn eine wiederkehrende Aufgabe direkt in der Notiz (nicht
  * ueber das Board) abgehakt wurde. Gibt null zurueck, wenn die Zeile nicht (mehr) bounce-faehig ist.
  */
 export function bounceRecurringInlineLine(line: string, lanes: LaneConfig[]): string | null {
