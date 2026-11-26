@@ -565,22 +565,38 @@ export interface TodayFocus {
 }
 
 /**
+ * Massgeblicher Tag einer Aufgabe fuer Heute/Ueberfaellig: das fruehere aus eigener
+ * Faelligkeit und dem Datum der fruehesten offenen Unteraufgabe.
+ */
+export function focusDay(task: GtdTask): string | undefined {
+	const dueDay = task.due?.slice(0, 10);
+	const subtaskDay = earliestOpenSubtaskDay(task.description);
+	if (!dueDay) return subtaskDay;
+	if (!subtaskDay) return dueDay;
+	return subtaskDay < dueDay ? subtaskDay : dueDay;
+}
+
+/**
  * Stellt die Smart-Liste "Heute" zusammen: heute faellig, ueberfaellig oder manuell fuer heute
- * markiert. Erledigte Aufgaben zaehlen nie. Eine Markierung von gestern zaehlt nicht mehr.
- * Ueberfaellige nach Faelligkeit (aelteste zuerst); "Heute" erst Termine mit Uhrzeit
- * (chronologisch), dann nach Prioritaet.
+ * markiert. Offene Unteraufgaben mit eigenem Datum zaehlen mit (siehe focusDay). Erledigte
+ * Aufgaben zaehlen nie, eine Markierung von gestern zaehlt nicht mehr. Ueberfaellige nach
+ * Datum (aelteste zuerst); "Heute" erst Termine mit Uhrzeit (chronologisch), dann nach Prioritaet.
  */
 export function buildTodayFocus(tasks: GtdTask[], now: Date = new Date()): TodayFocus {
 	const todayStr = formatLocalDate(now);
 	const overdue: GtdTask[] = [];
 	const today: GtdTask[] = [];
+	const dayOf = new Map<GtdTask, string | undefined>();
 	for (const task of tasks) {
 		if (task.done) continue;
-		const dueDay = task.due?.slice(0, 10);
-		if (dueDay && dueDay < todayStr) overdue.push(task);
-		else if (dueDay === todayStr || task.today === todayStr) today.push(task);
+		const day = focusDay(task);
+		dayOf.set(task, day);
+		if (day && day < todayStr) overdue.push(task);
+		else if (day === todayStr || task.today === todayStr) today.push(task);
 	}
-	overdue.sort((a, b) => (a.due ?? "").localeCompare(b.due ?? "") || priorityRank(a.priority) - priorityRank(b.priority));
+	overdue.sort(
+		(a, b) => (dayOf.get(a) ?? "").localeCompare(dayOf.get(b) ?? "") || priorityRank(a.priority) - priorityRank(b.priority)
+	);
 	// Uhrzeit-Schluessel nur fuer heutige Termine mit Uhrzeit; ohne Uhrzeit ans Ende.
 	const timeKey = (task: GtdTask) =>
 		task.due && task.due.slice(0, 10) === todayStr && hasTimeComponent(task.due) ? task.due : undefined;
@@ -801,18 +817,43 @@ export function countSubtasks(description: string | undefined): SubtaskProgress 
 
 export interface SubtaskItem {
 	done: boolean;
+	/** Text ohne Datums-/Uhrzeit-Marker. */
 	text: string;
+	/** Eigenes Datum der Unteraufgabe ("📅 YYYY-MM-DD", optional "⏰HH:mm"), unabhaengig von der Aufgabe. */
+	due?: string;
 }
 
-/** Gibt jede Checkbox-Zeile als { done, text }-Objekt zurueck, in Reihenfolge ihres Auftretens. */
+/**
+ * Gibt jede Checkbox-Zeile als { done, text, due }-Objekt zurueck, in Reihenfolge ihres
+ * Auftretens. Ein Datum in der Zeile ("📅 YYYY-MM-DD", optional "⏰HH:mm") ist das eigene
+ * Datum der Unteraufgabe und wird aus dem Anzeigetext entfernt. Die Zeile selbst bleibt
+ * unveraendert (beim Abhaken wird nur der Haken getauscht).
+ */
 export function parseSubtaskItems(description: string | undefined): SubtaskItem[] {
 	if (!description) return [];
 	const items: SubtaskItem[] = [];
 	for (const line of description.split(/\r?\n/)) {
 		const m = CHECKBOX_RE.exec(line);
-		if (m) items.push({ done: m[2].toLowerCase() === "x", text: m[3] });
+		if (!m) continue;
+		const rest = m[3];
+		const dateMatch = DATE_RE.exec(rest);
+		const timeMatch = TIME_RE.exec(rest);
+		const due = dateMatch ? (timeMatch ? `${dateMatch[1]}T${timeMatch[1]}` : dateMatch[1]) : undefined;
+		const text = due ? rest.replace(DATE_RE, "").replace(TIME_RE, "").replace(/\s+/g, " ").trim() : rest;
+		items.push({ done: m[2].toLowerCase() === "x", text, due });
 	}
 	return items;
+}
+
+/** Fruehestes Datum (YYYY-MM-DD) aller offenen Unteraufgaben mit eigenem Datum, sonst undefined. */
+export function earliestOpenSubtaskDay(description: string | undefined): string | undefined {
+	let earliest: string | undefined;
+	for (const item of parseSubtaskItems(description)) {
+		if (item.done || !item.due) continue;
+		const day = item.due.slice(0, 10);
+		if (!earliest || day < earliest) earliest = day;
+	}
+	return earliest;
 }
 
 /**

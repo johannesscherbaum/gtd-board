@@ -355,6 +355,7 @@ export const de = {
 			staleSomedayTitle: "Seit laengerem nicht mehr durchgesehen - beim naechsten Wochenrueckblick pruefen.",
 			agendaPersonTitle: "Agendapunkt fuer {name}",
 			subtasksToggleTitle: "Unteraufgabenliste ein-/ausklappen",
+			subtaskNextDueTitle: "Naechstes Datum einer offenen Unteraufgabe",
 			processTitle: "Verarbeiten (GTD: klaeren und einer Lane zuordnen)",
 			editDueTitle: "Klicken, um Faelligkeit direkt zu aendern",
 			revisitOnBadge: "Wiedervorlage: {date}",

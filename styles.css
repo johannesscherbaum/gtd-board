@@ -1139,6 +1139,18 @@
 	cursor: pointer;
 }
 
+/* :where() haelt die Spezifitaet bei 0, damit die Dringlichkeitsfarben (.gtd-card-due-*) gewinnen. */
+:where(.gtd-card-subtask-due, .gtd-card-subtasks-next) {
+	margin-left: auto;
+	font-size: var(--font-ui-smaller);
+	white-space: nowrap;
+	color: var(--text-muted);
+}
+
+.gtd-card-subtask-done .gtd-card-subtask-due {
+	text-decoration: line-through;
+}
+
 .gtd-card-subtask-done .gtd-card-subtask-text {
 	text-decoration: line-through;
 	color: var(--text-muted);

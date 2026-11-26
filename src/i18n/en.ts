@@ -354,6 +354,7 @@ export const en = {
 			staleSomedayTitle: "Not reviewed for a while - check at the next weekly review.",
 			agendaPersonTitle: "Agenda item for {name}",
 			subtasksToggleTitle: "Expand/collapse subtask list",
+			subtaskNextDueTitle: "Next date of an open subtask",
 			processTitle: "Process (GTD: clarify & assign to lane)",
 			editDueTitle: "Click to edit due date",
 			revisitOnBadge: "Revisit: {date}",

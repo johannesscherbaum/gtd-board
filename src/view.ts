@@ -7,6 +7,7 @@ import {
 	buildTodayFocus,
 	countSubtasks,
 	daysSince,
+	earliestOpenSubtaskDay,
 	parseSubtaskItems,
 	dueUrgency,
 	fileTaskId,
@@ -1396,6 +1397,17 @@ export class GtdBoardView extends ItemView {
 				cls: "gtd-card-subtasks-label",
 				text: `☑ ${subtasks.done}/${subtasks.total}`,
 			});
+			// Naechstes Datum einer offenen Unteraufgabe auch im eingeklappten Zustand zeigen.
+			const nextSubtaskDay = earliestOpenSubtaskDay(task.description);
+			if (nextSubtaskDay && !task.done) {
+				const nextEl = headerRow.createSpan({
+					cls: "gtd-card-subtasks-next",
+					text: `📅 ${nextSubtaskDay}`,
+					attr: { title: t("view.card.subtaskNextDueTitle") },
+				});
+				const urgency = dueUrgency(nextSubtaskDay);
+				if (urgency) nextEl.addClass(`gtd-card-due-${urgency}`);
+			}
 			const bar = headerRow.createDiv({ cls: "gtd-card-subtasks-bar" });
 			const fill = bar.createDiv({ cls: "gtd-card-subtasks-bar-fill" });
 			const percent = subtasks.total > 0 ? Math.round((subtasks.done / subtasks.total) * 100) : 0;
@@ -1412,6 +1424,12 @@ export class GtdBoardView extends ItemView {
 				const cb = row.createEl("input", { attr: { type: "checkbox" } });
 				cb.checked = item.done;
 				row.createSpan({ cls: "gtd-card-subtask-text", text: item.text });
+				if (item.due) {
+					// Eigenes Datum der Unteraufgabe, mit derselben Dringlichkeitsfarbe wie die Karte.
+					const dueEl = row.createSpan({ cls: "gtd-card-subtask-due", text: `📅 ${item.due.replace("T", " ")}` });
+					const urgency = item.done ? undefined : dueUrgency(item.due);
+					if (urgency) dueEl.addClass(`gtd-card-due-${urgency}`);
+				}
 				cb.addEventListener("click", (evt) => evt.stopPropagation());
 				if (task.source === "file") {
 					cb.addEventListener("change", () => {

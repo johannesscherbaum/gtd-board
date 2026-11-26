@@ -94,6 +94,12 @@ A customizable GTD-based Kanban board for Obsidian.
   (front matter `today: YYYY-MM-DD`, inline `🎯 YYYY-MM-DD`), so it expires
   by itself the next day. A recurring task that jumps to its next date loses
   the mark.
+- **Subtasks with their own date**: checklist items in a task's
+  description may carry their own date (`- [ ] Call back 📅 2026-11-28`,
+  optionally `⏰14:00`). The card shows it per subtask and the next open
+  date in the collapsed header. An open subtask due today or earlier brings
+  its task into the "Today" view (or the "Overdue" block). The task's own
+  due date is not changed.
 - **Detail panel**: on desktop, clicking a card (or "+" in a lane) opens the
   task form in a panel to the right of the board instead of a dialog, so the
   board stays visible. Due date and reminder have quick-pick chips (Today,
