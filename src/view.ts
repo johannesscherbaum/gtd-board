@@ -16,7 +16,7 @@ import {
 	shouldPromoteFromInbox,
 	startOfWeek,
 } from "./util";
-import { getLocale, priorityLabel, recurrenceLabel, t } from "./i18n";
+import { getLocale, originKindLabel, priorityLabel, recurrenceLabel, t } from "./i18n";
 
 /** Intl locale tag for date formatting, derived from our active i18n locale (used for the week view). */
 function intlLocale(): string {
@@ -1292,6 +1292,7 @@ export class GtdBoardView extends ItemView {
 
 		if (
 			isMarkedToday ||
+			task.origin ||
 			task.contexts.length > 0 ||
 			task.tags.length > 0 ||
 			task.delegatedTo ||
@@ -1308,6 +1309,7 @@ export class GtdBoardView extends ItemView {
 					attr: { title: t("view.card.todayBadgeTitle") },
 				});
 			}
+			if (task.origin) this.renderOriginBadge(tagsEl, task);
 			if (showPerson) {
 				tagsEl.createSpan({
 					cls: "gtd-card-tag gtd-card-tag-person",
@@ -1368,6 +1370,34 @@ export class GtdBoardView extends ItemView {
 		card.addEventListener("contextmenu", (evt) => this.openContextMenu(evt, task));
 
 		return card;
+	}
+
+	/**
+	 * Herkunfts-Badge (Planner, Meeting, ...): zeigt sourceLabel bzw. die Art der Quelle. Mit
+	 * sicherem sourceUrl oeffnet ein Klick die Quelle, statt den Bearbeiten-Dialog.
+	 */
+	private renderOriginBadge(container: HTMLElement, task: GtdTask): void {
+		const origin = task.origin;
+		if (!origin) return;
+		const kindLabel = originKindLabel(origin.kind);
+		const name = origin.label ? `${kindLabel}: ${origin.label}` : kindLabel;
+		const badge = container.createSpan({
+			cls: `gtd-card-tag gtd-card-tag-origin gtd-card-tag-origin-${origin.kind.toLowerCase().replace(/[^a-z0-9-]/g, "")}`,
+		});
+		const icon = badge.createSpan({ cls: "gtd-card-tag-origin-icon" });
+		setIcon(icon, origin.kind.toLowerCase() === "planner" ? "clipboard-list" : origin.kind.toLowerCase() === "meeting" ? "calendar-clock" : "link");
+		badge.createSpan({ text: origin.label ?? kindLabel });
+		if (origin.url) {
+			const url = origin.url;
+			badge.addClass("gtd-card-tag-origin-link");
+			badge.setAttribute("title", t("view.card.originLinkTitle", { source: name }));
+			badge.addEventListener("click", (evt) => {
+				evt.stopPropagation();
+				window.open(url);
+			});
+		} else {
+			badge.setAttribute("title", t("view.card.originTitle", { source: name }));
+		}
 	}
 
 	private startInlineTitleEdit(span: HTMLElement, task: GtdTask): void {

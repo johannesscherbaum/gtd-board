@@ -16,6 +16,7 @@ import {
 	parseInlineLine,
 	parseLocalDateTime,
 	parseTaskFile,
+	readTaskOrigin,
 	rewriteInlineLineForLane,
 	sanitizeFileName,
 	setInlineTodayMarker,
@@ -190,6 +191,7 @@ export class GtdStore {
 			visibleFrom: typeof frontmatter.visibleFrom === "string" ? frontmatter.visibleFrom : undefined,
 			revisitOn: typeof frontmatter.revisitOn === "string" ? frontmatter.revisitOn : undefined,
 			today: typeof frontmatter.today === "string" ? frontmatter.today : undefined,
+			origin: readTaskOrigin(frontmatter),
 		};
 		this.fileCache.set(cacheKey, { mtime: file.stat.mtime, task });
 		return task;

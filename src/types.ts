@@ -44,6 +44,23 @@ export interface LaneConfig {
 
 export type TaskSource = "file" | "inline";
 
+/**
+ * Herkunft einer Datei-Aufgabe (z. B. Planner, Meeting), nur zur Anzeige. Kommt aus den
+ * optionalen Frontmatter-Feldern `source`, `sourceLabel`, `sourceUrl` und `plannerId`, die ein
+ * externer Lauf schreibt. Das Plugin liest und erhaelt sie, schreibt sie aber nie selbst und
+ * schreibt nie nach Planner zurueck. Intern "origin", weil GtdTask.source schon Datei/Inline meint.
+ */
+export interface TaskOrigin {
+	/** Art der Quelle aus `source` (z. B. "planner", "meeting"); Gruppierschluessel der Seitenleiste. */
+	kind: string;
+	/** Anzeigename aus `sourceLabel` (z. B. Plan- oder Meetingname). */
+	label?: string;
+	/** Link zur Quelle aus `sourceUrl` (nur http(s) und obsidian://). */
+	url?: string;
+	/** Planner-Aufgaben-ID aus `plannerId` (Schluessel des externen Laufs). */
+	plannerId?: string;
+}
+
 /** Prioritaet einer Aufgabe. Ohne explizite Angabe gilt eine Aufgabe als "medium". */
 export type TaskPriority = "high" | "medium" | "low";
 
@@ -111,6 +128,8 @@ export interface GtdTask {
 	 * inline "🎯 YYYY-MM-DD").
 	 */
 	today?: string;
+	/** Herkunft (nur Datei-Aufgaben mit Herkunftsfeldern im Frontmatter). */
+	origin?: TaskOrigin;
 }
 
 export interface GtdBoardSettings {

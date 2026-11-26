@@ -85,6 +85,13 @@ export function priorityLabel(priority: TaskPriority): string {
 	return t(`priority.${priority}` as TranslationKey);
 }
 
+/** Display label for a task origin kind: known kinds are translated, unknown ones shown as written. */
+export function originKindLabel(kind: string): string {
+	const known = ["planner", "meeting", "other"];
+	const key = kind.toLowerCase();
+	return known.includes(key) ? t(`origin.${key}` as TranslationKey) : kind;
+}
+
 /** Localized display label for a recurrence rule, e.g. for dropdowns and badges. */
 export function recurrenceLabel(rule: RecurrenceRule): string {
 	return t(`recurrence.${rule}` as TranslationKey);

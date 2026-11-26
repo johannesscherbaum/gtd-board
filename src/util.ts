@@ -1,5 +1,5 @@
 import { parseYaml, stringifyYaml } from "obsidian";
-import { GtdBoardSettings, GtdTask, LaneConfig, RecurrenceRule, TaskPriority } from "./types";
+import { GtdBoardSettings, GtdTask, LaneConfig, RecurrenceRule, TaskOrigin, TaskPriority } from "./types";
 import { t } from "./i18n";
 
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
@@ -46,6 +46,36 @@ export function parseTaskFile(content: string): ParsedTaskFile {
 	const raw: unknown = parseYaml(match[1]);
 	const frontmatter = raw && typeof raw === "object" ? (raw as TaskFrontmatter) : {};
 	return { frontmatter, body: match[2].replace(/^\r?\n/, "") };
+}
+
+/** Liest einen optionalen Frontmatter-Wert als nicht-leeren String (Zahlen werden umgewandelt). */
+function frontmatterString(value: unknown): string | undefined {
+	if (typeof value === "number") return String(value);
+	if (typeof value !== "string") return undefined;
+	const trimmed = value.trim();
+	return trimmed.length > 0 ? trimmed : undefined;
+}
+
+/** Nur Links, die gefahrlos geoeffnet werden koennen: http(s) und obsidian://. */
+export function isSafeOriginUrl(url: string): boolean {
+	return /^(https?:\/\/|obsidian:\/\/)/i.test(url);
+}
+
+/**
+ * Liest die Herkunftsfelder (`source`, `sourceLabel`, `sourceUrl`, `plannerId`) aus dem
+ * Frontmatter. Ohne `source`, aber mit `plannerId` gilt die Aufgabe als aus Planner stammend.
+ * Ohne jedes dieser Felder: undefined. Unsichere Links werden ignoriert (nicht angezeigt),
+ * bleiben aber im Frontmatter unveraendert stehen.
+ */
+export function readTaskOrigin(frontmatter: Record<string, unknown>): TaskOrigin | undefined {
+	const source = frontmatterString(frontmatter.source);
+	const label = frontmatterString(frontmatter.sourceLabel);
+	const rawUrl = frontmatterString(frontmatter.sourceUrl);
+	const plannerId = frontmatterString(frontmatter.plannerId);
+	const kind = source ?? (plannerId ? "planner" : label || rawUrl ? "other" : undefined);
+	if (!kind) return undefined;
+	const url = rawUrl && isSafeOriginUrl(rawUrl) ? rawUrl : undefined;
+	return { kind, label, url, plannerId };
 }
 
 /** Baut den vollstaendigen Dateiinhalt (Frontmatter + Body) einer Aufgaben-Datei. */

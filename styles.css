@@ -904,6 +904,30 @@
 	font-weight: 600;
 }
 
+.gtd-card-tag-origin {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	color: var(--text-muted);
+}
+
+.gtd-card-tag-origin-icon {
+	display: inline-flex;
+}
+
+.gtd-card-tag-origin-icon svg {
+	width: 12px;
+	height: 12px;
+}
+
+.gtd-card-tag-origin-link {
+	cursor: pointer;
+}
+
+.gtd-card-tag-origin-link:hover {
+	color: var(--text-accent);
+}
+
 .gtd-card-tag-project {
 	color: var(--text-accent-hover, var(--text-accent));
 	font-weight: 500;

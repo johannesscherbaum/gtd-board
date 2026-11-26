@@ -342,6 +342,8 @@ export const de = {
 			revisitOnBadge: "Wiedervorlage: {date}",
 			todayBadge: "🎯 Heute",
 			todayBadgeTitle: "Fuer heute markiert (verfaellt morgen)",
+			originTitle: "Herkunft: {source}",
+			originLinkTitle: "Herkunft: {source} - Klick oeffnet die Quelle",
 		},
 		contextMenu: {
 			edit: "Bearbeiten",
@@ -364,6 +366,11 @@ export const de = {
 		high: "Hoch",
 		medium: "Mittel",
 		low: "Niedrig",
+	},
+	origin: {
+		planner: "Planner",
+		meeting: "Meeting",
+		other: "Andere Quelle",
 	},
 	recurrence: {
 		daily: "Taeglich",

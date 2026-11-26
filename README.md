@@ -94,6 +94,13 @@ A customizable GTD-based Kanban board for Obsidian.
   (front matter `today: YYYY-MM-DD`, inline `🎯 YYYY-MM-DD`), so it expires
   by itself the next day. A recurring task that jumps to its next date loses
   the mark.
+- **Origin (Planner, meetings)**: file tasks may carry the optional front
+  matter fields `source` (e.g. `planner`, `meeting`), `sourceLabel`,
+  `sourceUrl` and `plannerId`. The card shows them as a small badge; with a
+  `sourceUrl` (http(s) or obsidian://) a click opens the source. The plugin
+  only reads these fields and keeps them when editing or moving a task. It
+  never writes them and never writes back to Planner: Planner tasks are
+  created as files by an external run, keyed by `plannerId`.
 - **Bulk actions**: the "Multi-select" button shows a checkbox on every
   card; selected tasks can be moved together to a target lane or (with a
   confirmation prompt) deleted together.
