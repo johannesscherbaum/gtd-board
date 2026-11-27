@@ -84,7 +84,8 @@ A customizable GTD-based Kanban board for Obsidian.
   moved to "Done" or checked off directly in the note, it automatically
   jumps to its next due date and stays open instead of being completed -
   classic "every Monday" behavior, has no effect without a due date.
-- **Agenda view**: "Kanban"/"Agenda" toggle in the toolbar. The agenda view
+- **List view**: "Kanban"/"List" toggle in the toolbar (formerly called
+  "Agenda", renamed to avoid confusion with agendas below). The list view
   shows all open tasks across lanes as a flat list, always sorted ascending
   by due date (tasks without a due date at the end); each card carries a
   badge with its actual lane.
@@ -107,7 +108,7 @@ A customizable GTD-based Kanban board for Obsidian.
   None). Esc or "Cancel" discards changes, Ctrl/Cmd+Enter saves. On mobile
   the dialog is used as before.
 - **Sidebar**: a toggleable sidebar (panel icon at the left of the toolbar)
-  with counters for lists (Today with overdue count, Kanban, Agenda, Week),
+  with counters for lists (Today with overdue count, Kanban, List, Week),
   people (from "Delegated to"), projects and origin. Counters always cover
   all open tasks; clicking a person, project or origin filters the board,
   a second click clears the filter. On mobile the sidebar opens on top of the
@@ -133,6 +134,19 @@ A customizable GTD-based Kanban board for Obsidian.
   picker to change the day) or creates a note without event; notes open in
   a new tab. "+ Discuss" notes a topic for a person (pick a known person,
   with their number of open topics, or type a new name) as an agenda item.
+- **Agendas (topics to discuss with people)**: each person has a note in the
+  agendas folder (e.g. `GTD/Agendas/Günther.md`, person from `person:` or the
+  file name); every top-level checkbox there is a topic. In any note in the
+  watched folder, `- [ ] Topic #gtd/agenda 👤 Günther` is a topic as well.
+  Checking a topic marks it as discussed with `✅ YYYY-MM-DD` and keeps it as
+  history; indented lines below a topic are notes. Older agenda files with
+  `lane: __agenda__` (one file per topic) keep working. The sidebar group
+  "Conversations" lists people with open topics; clicking one opens the person
+  view: new topic field, open topics with notes and actions (add note, turn
+  into task, delegate to the person, open in note), tasks delegated to the
+  person and the discussed topics. Command "Capture agenda item" opens the
+  same input as "+ Discuss". New meeting notes list the open topics of the
+  attendees (built-in template, or `{{agenda}}` in your own template).
 - **Origin (Planner, meetings)**: file tasks may carry the optional front
   matter fields `source` (e.g. `planner`, `meeting`), `sourceLabel`,
   `sourceUrl` and `plannerId`. The card shows them as a small badge; with a
@@ -147,7 +161,7 @@ A customizable GTD-based Kanban board for Obsidian.
   its title that marks the task done (or undoes that) directly, without
   opening the edit dialog - moves it into/out of the "Done" lane
   automatically, including recurrence logic.
-- **Week view**: a third view (alongside Kanban/Agenda) with a real calendar
+- **Week view**: a third view (alongside Kanban/List) with a real calendar
   grid - Monday through Sunday as columns, open tasks with a due date sit
   under their calendar day. Navigation to the previous/next week plus a
   "Today" button. For anything beyond that (rescheduling, combining several

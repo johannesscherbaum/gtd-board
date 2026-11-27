@@ -333,10 +333,10 @@ export const en = {
 			all: "All projects",
 		},
 		viewMode: {
-			title: "View: Kanban board, today, agenda list, week calendar, projects, or contexts",
+			title: "View: Kanban board, today, list, week calendar, projects, or contexts",
 			board: "Kanban",
 			today: "Today",
-			agenda: "Agenda",
+			agenda: "List",
 			week: "Week",
 			projects: "Projects",
 			contexts: "Contexts",
