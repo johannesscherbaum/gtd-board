@@ -107,11 +107,14 @@ A customizable GTD-based Kanban board for Obsidian.
   Tomorrow, Next week, None; reminder: In 1 hr., Tomorrow 9:00, Next week,
   None). Esc or "Cancel" discards changes, Ctrl/Cmd+Enter saves. On mobile
   the dialog is used as before.
-- **Sidebar**: a toggleable sidebar (panel icon at the left of the toolbar)
-  with counters for lists (Today with overdue count, Kanban, List, Week),
-  people (from "Delegated to"), projects and origin. Counters always cover
-  all open tasks; clicking a person, project or origin filters the board,
-  a second click clears the filter. On mobile the sidebar opens on top of the
+- **Sidebar**: a toggleable sidebar (panel icon at the left of the toolbar).
+  "Lists" holds Today (with overdue count) and every lane with its colour
+  and count; clicking a lane shows it as a full-width list. "Views" holds
+  Kanban, List and Week. Below: Conversations, people (from "Delegated
+  to"), projects and one group per origin ("Planner", "From meetings") with
+  "All …" plus each plan or meeting by name. Counters always cover all
+  tasks; clicking a person, project or origin filters the board, a second
+  click clears the filter. On mobile the sidebar opens on top of the
   board.
 - **Meeting notes**: the command "New meeting note" lists today's events
   from your calendar (ICS, parsed with ical.js incl. recurring series,

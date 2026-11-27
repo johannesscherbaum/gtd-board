@@ -530,6 +530,13 @@ export interface SidebarCounts {
 	projects: SidebarEntry[];
 	/** Herkunftsarten (origin.kind, klein geschrieben). */
 	origins: SidebarEntry[];
+	/** Je Herkunftsart die einzelnen Quellen (origin.label, z. B. Plan- oder Meetingname). */
+	originLabels: Record<string, SidebarEntry[]>;
+	/**
+	 * Zaehler je Lane wie auf dem Board: offene Aufgaben der Lane, bei der Erledigt-Lane die
+	 * erledigten, bei der Geplant-Lane alle offenen mit Faelligkeit. Ohne Agenda-Eintraege.
+	 */
+	lanes: Record<string, number>;
 }
 
 /**
@@ -537,7 +544,12 @@ export interface SidebarCounts {
  * Projekte und Herkunft ohne Agenda-Eintraege (wie in der Projekteansicht); Gruppen
  * alphabetisch sortiert.
  */
-export function buildSidebarCounts(tasks: GtdTask[], agendaLaneId: string, now: Date = new Date()): SidebarCounts {
+export function buildSidebarCounts(
+	tasks: GtdTask[],
+	agendaLaneId: string,
+	now: Date = new Date(),
+	laneConfigs: LaneConfig[] = []
+): SidebarCounts {
 	const open = tasks.filter((t) => !t.done);
 	const focus = buildTodayFocus(open, now);
 	const weekStart = formatLocalDate(startOfWeek(now));
@@ -566,7 +578,43 @@ export function buildSidebarCounts(tasks: GtdTask[], agendaLaneId: string, now: 
 		people: group((t) => t.delegatedTo),
 		projects: group((t) => t.project),
 		origins: group((t) => t.origin?.kind.toLowerCase()),
+		originLabels: originLabelCounts(open.filter((t) => t.laneId !== agendaLaneId)),
+		lanes: laneCounts(tasks.filter((t) => t.laneId !== agendaLaneId), laneConfigs),
 	};
+}
+
+function originLabelCounts(open: GtdTask[]): Record<string, SidebarEntry[]> {
+	const byKind = new Map<string, Map<string, number>>();
+	for (const task of open) {
+		const kind = task.origin?.kind.trim().toLowerCase();
+		const label = task.origin?.label?.trim();
+		if (!kind || !label) continue;
+		const labels = byKind.get(kind) ?? new Map<string, number>();
+		labels.set(label, (labels.get(label) ?? 0) + 1);
+		byKind.set(kind, labels);
+	}
+	const result: Record<string, SidebarEntry[]> = {};
+	for (const [kind, labels] of byKind) {
+		result[kind] = Array.from(labels, ([key, count]) => ({ key, count })).sort((a, b) => a.key.localeCompare(b.key));
+	}
+	return result;
+}
+
+function laneCounts(tasks: GtdTask[], lanes: LaneConfig[]): Record<string, number> {
+	const result: Record<string, number> = {};
+	const doneLaneId = lanes.find((l) => l.isDone)?.id;
+	for (const lane of lanes) {
+		if (lane.isPlanned) result[lane.id] = tasks.filter((t) => !t.done && !!t.due).length;
+		else if (lane.isDone) result[lane.id] = tasks.filter((t) => t.done).length;
+		else result[lane.id] = tasks.filter((t) => !t.done && t.laneId === lane.id).length;
+	}
+	// Erledigte zaehlen nur dann zur Erledigt-Lane, wenn es sie gibt (sonst bei ihrer Lane, wie auf dem Board).
+	if (!doneLaneId) {
+		for (const lane of lanes) {
+			if (!lane.isPlanned) result[lane.id] += tasks.filter((t) => t.done && t.laneId === lane.id).length;
+		}
+	}
+	return result;
 }
 
 /** Person fuer "Besprechen mit": Name und Zahl der offenen Gespraechsthemen. */

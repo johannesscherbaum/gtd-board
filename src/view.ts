@@ -31,7 +31,7 @@ import { QuickContext, openTalkModal, renderNotePanel, renderTalkPanel, renderTa
 
 export const GTD_BOARD_VIEW_TYPE = "gtd-board-view";
 
-type ViewMode = "board" | "today" | "agenda" | "week" | "projects" | "contexts" | "person";
+type ViewMode = "board" | "today" | "agenda" | "week" | "projects" | "contexts" | "person" | "lane";
 
 function sortLabel(mode: SortMode): string {
 	switch (mode) {
@@ -65,6 +65,10 @@ export class GtdBoardView extends ItemView {
 	private sidebarEl!: HTMLElement;
 	private sidebarToggleEl!: HTMLElement;
 	private viewModeSelectEl!: HTMLSelectElement;
+	/** Lane der Listenansicht einer einzelnen Lane (viewMode "lane", aus der Seitenleiste). */
+	private sidebarLaneId = "";
+	/** Herkunfts-Quelle (origin.label) als zusaetzlicher Filter zu originFilter, leer = alle. */
+	private originLabelFilter = "";
 	/** Person der Personenansicht (viewMode "person", aus der Seitenleiste "Gespraeche"). */
 	private talkPerson = "";
 	/** Offenes Ausklapp-Panel eines Schnellknopfs (+ Aufgabe/Notiz/Besprechen) und sein Knopf. */
@@ -383,10 +387,11 @@ export class GtdBoardView extends ItemView {
 		if (prev === "projects" && mode !== "projects") {
 			this.detailProject = undefined;
 		}
-		// Die Personenansicht hat keinen Eintrag in der Auswahl und wird nicht gemerkt.
-		this.viewModeSelectEl.value = mode === "person" ? "" : mode;
-		this.sortSelectEl.toggle(mode === "board" || mode === "projects" || mode === "contexts");
-		if (mode !== "person") void this.plugin.saveUiState({ lastViewMode: mode });
+		// Personen- und Lane-Ansicht haben keinen Eintrag in der Auswahl und werden nicht gemerkt.
+		const transient = mode === "person" || mode === "lane";
+		this.viewModeSelectEl.value = transient ? "" : mode;
+		this.sortSelectEl.toggle(mode === "board" || mode === "projects" || mode === "contexts" || mode === "lane");
+		if (!transient) void this.plugin.saveUiState({ lastViewMode: mode });
 		this.renderBoard();
 	}
 
@@ -483,11 +488,13 @@ export class GtdBoardView extends ItemView {
 		this.sidebarEl.toggle(this.sidebarVisible);
 		if (!this.sidebarVisible) return;
 
-		const counts = buildSidebarCounts(this.tasks, AGENDA_LANE_ID);
+		const lanes = this.plugin.settings.lanes;
+		const counts = buildSidebarCounts(this.tasks, AGENDA_LANE_ID, new Date(), lanes);
 		const afterClick = () => {
 			if (Platform.isMobile) this.setSidebarVisible(false);
 		};
 
+		// Listen: Heute und jede Lane einzeln (wie auf dem Board gezaehlt).
 		const lists = this.createSidebarGroup(t("view.sidebar.lists"));
 		const todayItem = this.addSidebarItem(lists, "sun", t("view.viewMode.today"), counts.today, this.viewMode === "today", () => {
 			this.setViewMode("today");
@@ -500,13 +507,27 @@ export class GtdBoardView extends ItemView {
 				attr: { title: t("view.sidebar.overdueTitle", { count: counts.overdue }) },
 			});
 		}
+		for (const lane of lanes) {
+			const active = this.viewMode === "lane" && this.sidebarLaneId === lane.id;
+			const item = this.addSidebarItem(lists, "", lane.name, counts.lanes[lane.id] ?? 0, active, () => {
+				this.sidebarLaneId = lane.id;
+				this.setViewMode("lane");
+				afterClick();
+			});
+			const dot = item.querySelector<HTMLElement>(".gtd-sidebar-item-icon");
+			dot?.addClass("gtd-sidebar-lane-dot");
+			dot?.setCssProps({ "--lane-color": lane.color });
+		}
+
+		// Ansichten ueber alle Lanes hinweg.
+		const views = this.createSidebarGroup(t("view.sidebar.views"));
 		const listModes: { mode: ViewMode; icon: string; count: number }[] = [
 			{ mode: "board", icon: "layout-grid", count: counts.open },
 			{ mode: "agenda", icon: "list", count: counts.open },
 			{ mode: "week", icon: "calendar-days", count: counts.week },
 		];
 		for (const entry of listModes) {
-			this.addSidebarItem(lists, entry.icon, t(`view.viewMode.${entry.mode}` as "view.viewMode.board"), entry.count, this.viewMode === entry.mode, () => {
+			this.addSidebarItem(views, entry.icon, t(`view.viewMode.${entry.mode}` as "view.viewMode.board"), entry.count, this.viewMode === entry.mode, () => {
 				this.setViewMode(entry.mode);
 				afterClick();
 			});
@@ -531,7 +552,7 @@ export class GtdBoardView extends ItemView {
 		if (counts.people.length > 0) {
 			const group = this.createSidebarGroup(t("view.sidebar.people"));
 			for (const person of counts.people) {
-				this.addSidebarItem(group, "user", person.key, person.count, this.personFilter === person.key, () => {
+				this.addSidebarItem(group, "user", `@${person.key}`, person.count, this.personFilter === person.key, () => {
 					this.personFilter = this.personFilter === person.key ? "" : person.key;
 					this.renderBoard();
 					afterClick();
@@ -552,12 +573,25 @@ export class GtdBoardView extends ItemView {
 			}
 		}
 
-		if (counts.origins.length > 0) {
-			const group = this.createSidebarGroup(t("view.sidebar.origins"));
-			for (const origin of counts.origins) {
-				const icon = origin.key === "planner" ? "clipboard-list" : origin.key === "meeting" ? "calendar-clock" : "link";
-				this.addSidebarItem(group, icon, originKindLabel(origin.key), origin.count, this.originFilter === origin.key, () => {
-					this.originFilter = this.originFilter === origin.key ? "" : origin.key;
+		// Herkunft: je Art eine Gruppe ("Planner", "Aus Meetings") mit "Alle" und den einzelnen
+		// Quellen (Plan- bzw. Meetingname). Klick filtert, zweiter Klick hebt den Filter auf.
+		for (const origin of counts.origins) {
+			const kind = origin.key;
+			const icon = kind === "planner" ? "clipboard-list" : kind === "meeting" ? "calendar-clock" : "link";
+			const group = this.createSidebarGroup(this.originGroupTitle(kind));
+			const allActive = this.originFilter === kind && !this.originLabelFilter;
+			this.addSidebarItem(group, icon, t("view.sidebar.originAll", { kind: originKindLabel(kind) }), origin.count, allActive, () => {
+				const same = allActive;
+				this.originFilter = same ? "" : kind;
+				this.originLabelFilter = "";
+				this.renderBoard();
+				afterClick();
+			});
+			for (const label of counts.originLabels[kind] ?? []) {
+				const active = this.originFilter === kind && this.originLabelFilter === label.key;
+				this.addSidebarItem(group, "", label.key, label.count, active, () => {
+					this.originFilter = active ? "" : kind;
+					this.originLabelFilter = active ? "" : label.key;
 					this.renderBoard();
 					afterClick();
 				});
@@ -569,6 +603,7 @@ export class GtdBoardView extends ItemView {
 			reset.addEventListener("click", () => {
 				this.personFilter = "";
 				this.originFilter = "";
+				this.originLabelFilter = "";
 				this.projectFilter = "";
 				this.projectSelectEl.value = "";
 				void this.plugin.saveUiState({ lastProjectFilter: "" });
@@ -594,7 +629,7 @@ export class GtdBoardView extends ItemView {
 		const item = group.createDiv({ cls: "gtd-sidebar-item", attr: { role: "button", tabindex: "0" } });
 		if (active) item.addClass("is-active");
 		const iconEl = item.createSpan({ cls: "gtd-sidebar-item-icon" });
-		setIcon(iconEl, icon);
+		if (icon) setIcon(iconEl, icon);
 		item.createSpan({ cls: "gtd-sidebar-item-label", text: label, attr: { title: label } });
 		item.createSpan({ cls: "gtd-sidebar-count", text: String(count) });
 		item.addEventListener("click", onClick);
@@ -621,7 +656,12 @@ export class GtdBoardView extends ItemView {
 		this.boardEl.removeClass("gtd-board-contexts-mode");
 		this.boardEl.removeClass("gtd-board-today-mode");
 		this.boardEl.removeClass("gtd-board-person-mode");
-		if (this.viewMode === "person" && this.talkPerson) {
+		this.boardEl.removeClass("gtd-board-lane-mode");
+		const sidebarLane = this.plugin.settings.lanes.find((l) => l.id === this.sidebarLaneId);
+		if (this.viewMode === "lane" && sidebarLane) {
+			this.boardEl.addClass("gtd-board-lane-mode");
+			this.boardEl.appendChild(this.renderLaneList(sidebarLane));
+		} else if (this.viewMode === "person" && this.talkPerson) {
 			this.boardEl.addClass("gtd-board-person-mode");
 			this.boardEl.appendChild(this.renderPersonView(this.talkPerson));
 		} else if (this.viewMode === "today") {
@@ -649,6 +689,36 @@ export class GtdBoardView extends ItemView {
 		}
 		this.updateBulkBar();
 		this.renderSidebar();
+	}
+
+	/** Gruppentitel der Herkunft in der Seitenleiste, z. B. "Planner" oder "Aus Meetings". */
+	private originGroupTitle(kind: string): string {
+		if (kind === "meeting") return t("view.sidebar.fromMeetings");
+		return originKindLabel(kind);
+	}
+
+	/**
+	 * Eine einzelne Lane als Liste (aus der Seitenleiste): dieselben Aufgaben wie die Spalte auf
+	 * dem Board, in voller Breite und in der gewaehlten Sortierung.
+	 */
+	private renderLaneList(lane: LaneConfig): HTMLElement {
+		const container = createDiv({ cls: "gtd-agenda gtd-lane-list" });
+		const header = container.createDiv({ cls: "gtd-lane-list-header" });
+		header.setCssProps({ "--lane-color": lane.color });
+		header.createSpan({ cls: "gtd-lane-dot" });
+		header.createSpan({ cls: "gtd-lane-list-title", text: lane.name });
+		const all = lane.isPlanned
+			? this.tasks.filter((t) => !t.done && !!t.due)
+			: this.tasks.filter((t) => t.laneId !== AGENDA_LANE_ID && this.displayLaneId(t) === lane.id);
+		const visible = all.filter((t) => this.matchesFilter(t));
+		header.createSpan({ cls: "gtd-lane-count", text: String(all.length) });
+		if (visible.length === 0) {
+			container.createDiv({ cls: "gtd-agenda-empty", text: t("view.sidebar.laneEmpty") });
+			return container;
+		}
+		const sorted = lane.isPlanned ? this.sortByDueAscending(visible) : this.sortTasks(visible);
+		for (const task of sorted) container.appendChild(this.renderCard(task, {}));
+		return container;
 	}
 
 	/**
@@ -1261,6 +1331,7 @@ export class GtdBoardView extends ItemView {
 		if (this.projectFilter && task.project !== this.projectFilter) return false;
 		if (this.personFilter && task.delegatedTo?.trim() !== this.personFilter) return false;
 		if (this.originFilter && task.origin?.kind.toLowerCase() !== this.originFilter) return false;
+		if (this.originLabelFilter && task.origin?.label?.trim() !== this.originLabelFilter) return false;
 		if (!this.filterText) return true;
 		if (task.title.toLowerCase().includes(this.filterText)) return true;
 		return task.tags.some((t) => t.toLowerCase().includes(this.filterText));
@@ -1441,7 +1512,7 @@ export class GtdBoardView extends ItemView {
 
 		const laneTasksAll = lane.isPlanned
 			? this.tasks.filter((t) => !t.done && !!t.due)
-			: this.tasks.filter((t) => this.displayLaneId(t) === lane.id);
+			: this.tasks.filter((t) => t.laneId !== AGENDA_LANE_ID && this.displayLaneId(t) === lane.id);
 		const laneTasksFiltered = laneTasksAll.filter((t) => this.matchesFilter(t));
 		const laneTasksVisible = lane.isPlanned
 			? this.sortByDueAscending(laneTasksFiltered)

@@ -55,6 +55,37 @@ describe("buildSidebarCounts", () => {
 		]);
 	});
 
+	it("schluesselt Herkunft nach Quelle auf und zaehlt je Lane", () => {
+		const lanes = [
+			{ id: "inbox", name: "Eingang", color: "#999", tag: "gtd/inbox", isInbox: true },
+			{ id: "next-actions", name: "Naechste", color: "#00f", tag: "gtd/next" },
+			{ id: "planned", name: "Geplant", color: "#0f0", tag: "", isPlanned: true },
+			{ id: "done", name: "Erledigt", color: "#0a0", tag: "", isDone: true },
+		];
+		const c = buildSidebarCounts(
+			[
+				task({ title: "p1", origin: { kind: "planner", label: "Plan B" } }),
+				task({ title: "p2", origin: { kind: "Planner", label: "Plan A" } }),
+				task({ title: "p3", origin: { kind: "planner", label: "Plan A" }, laneId: "inbox", due: "2026-12-01" }),
+				task({ title: "p4", origin: { kind: "planner", label: "Plan A" }, done: true }),
+				task({ title: "m1", origin: { kind: "meeting", label: "Jour fixe" } }),
+				task({ title: "ohne Label", origin: { kind: "meeting" } }),
+				task({ title: "thema", laneId: AGENDA_LANE_ID, done: true }),
+			],
+			AGENDA_LANE_ID,
+			now,
+			lanes
+		);
+		expect(c.originLabels).toEqual({
+			planner: [
+				{ key: "Plan A", count: 2 },
+				{ key: "Plan B", count: 1 },
+			],
+			meeting: [{ key: "Jour fixe", count: 1 }],
+		});
+		expect(c.lanes).toEqual({ inbox: 1, "next-actions": 4, planned: 1, done: 1 });
+	});
+
 	it("liefert leere Gruppen ohne passende Felder", () => {
 		const empty = buildSidebarCounts([task({ title: "x" })], AGENDA_LANE_ID, now);
 		expect(empty.people).toEqual([]);
