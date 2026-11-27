@@ -1705,3 +1705,116 @@
 	color: var(--text-accent);
 	display: inline-flex;
 }
+
+/* Personenansicht "Gespraeche": Themen, Anmerkungen, Delegiertes und Verlauf einer Person. */
+.gtd-person-view {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	width: 100%;
+	max-width: 760px;
+	padding: 8px 4px;
+}
+
+.gtd-person-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.gtd-person-title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: var(--font-ui-large);
+	font-weight: var(--font-semibold);
+}
+
+.gtd-person-title-icon {
+	display: inline-flex;
+	color: var(--text-muted);
+}
+
+.gtd-person-input {
+	width: 100%;
+}
+
+.gtd-person-section {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.gtd-person-section-title {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.gtd-person-done > summary {
+	cursor: var(--cursor);
+}
+
+.gtd-person-empty {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.gtd-person-topic {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 8px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background-color: var(--background-secondary);
+}
+
+.gtd-person-topic.is-done .gtd-person-topic-title {
+	color: var(--text-muted);
+	text-decoration: line-through;
+}
+
+.gtd-person-topic-main {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.gtd-person-topic-title {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.gtd-person-topic-date {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.gtd-person-topic-notes {
+	margin: 0 0 0 28px;
+	padding-left: 14px;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.gtd-person-topic-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 2px;
+}
+
+.gtd-person-note-input {
+	width: 100%;
+}
+
+.gtd-board.gtd-board-person-mode {
+	overflow-y: auto;
+	justify-content: center;
+}
+
+.gtd-agenda-person-header[role="button"] {
+	cursor: var(--cursor);
+}

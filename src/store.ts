@@ -302,6 +302,31 @@ export class GtdStore {
 	}
 
 	/**
+	 * Macht aus einem Gespraechsthema eine Aufgabe in "Naechste Aktionen" (mit delegate an die
+	 * Person delegiert, also "Wartet auf"). Das Thema gilt danach als besprochen; bei Themen in
+	 * Notizen kommt ein Link auf die neue Aufgabe als Anmerkung darunter.
+	 */
+	async convertAgendaToTask(task: GtdTask, delegate: boolean): Promise<TFile> {
+		const laneId = this.settings.lanes.find((l) => l.isNextActions)?.id ?? this.defaultLaneId();
+		const file = await this.createTaskFile({
+			laneId,
+			title: task.title,
+			description: task.source === "inline" ? task.description : "",
+			delegatedTo: delegate ? task.person : undefined,
+		});
+		if (task.source === "inline") {
+			await this.addAgendaNote(task, `→ [[${file.path.replace(/\.md$/, "")}|${file.basename}]]`);
+		}
+		const doneLaneId = this.settings.lanes.find((l) => l.isDone)?.id;
+		if (doneLaneId) {
+			// Zeilennummer kann sich durch die Anmerkung nicht verschoben haben (sie steht darunter).
+			if (task.source === "inline") await this.moveInlineTask(task, doneLaneId);
+			else await this.moveFileTask(task, doneLaneId);
+		}
+		return file;
+	}
+
+	/**
 	 * Juengerer Zeitpunkt aus Datei-Aenderungszeit und einem expliziten Review im Wochenrueckblick -
 	 * Grundlage der Auffrischungs-Markierungen ("Wartet auf" / "Irgendwann/Vielleicht"), da ein
 	 * reiner Review (ohne inhaltliche Aenderung) die Datei nicht anfasst.

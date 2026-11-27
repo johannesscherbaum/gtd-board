@@ -61,3 +61,25 @@ describe("Agendas im Store", () => {
 		expect(vault.content(path)).toContain("- [ ] Budget 2027\n\t- Zahlen von Regine abwarten\n");
 	});
 });
+
+describe("convertAgendaToTask", () => {
+	it("legt eine Aufgabe an, verlinkt sie und hakt das Thema ab", async () => {
+		const { store, vault } = makeStore({
+			...DEFAULT_SETTINGS,
+			watchFolder: "Notizen",
+			taskFilesFolder: "GTD/Aufgaben",
+			agendaEnabled: true,
+			agendaFolder: "GTD/Agendas",
+			scanInlineTasks: true,
+		});
+		await store.addAgendaTopic("Anna", "Angebot prüfen");
+		const topic = (await store.getAllTasks()).find((t) => t.title === "Angebot prüfen")!;
+		const file = await store.convertAgendaToTask(topic, true);
+
+		expect(vault.content(file.path)).toMatch(/lane: "?next-actions"?/);
+		expect(vault.content(file.path)).toMatch(/delegatedTo: "?Anna"?/);
+		expect(vault.content("GTD/Agendas/Anna.md")).toMatch(
+			/- \[x\] Angebot prüfen ✅ \d{4}-\d{2}-\d{2}\n\t- → \[\[GTD\/Aufgaben\/Angebot prüfen\|Angebot prüfen\]\]/
+		);
+	});
+});

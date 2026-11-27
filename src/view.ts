@@ -5,6 +5,7 @@ import {
 	addDays,
 	buildSidebarCounts,
 	buildTodayFocus,
+	collectTalkPeople,
 	countSubtasks,
 	daysSince,
 	earliestOpenSubtaskDay,
@@ -30,7 +31,7 @@ import { QuickContext, openTalkModal, renderNotePanel, renderTalkPanel, renderTa
 
 export const GTD_BOARD_VIEW_TYPE = "gtd-board-view";
 
-type ViewMode = "board" | "today" | "agenda" | "week" | "projects" | "contexts";
+type ViewMode = "board" | "today" | "agenda" | "week" | "projects" | "contexts" | "person";
 
 function sortLabel(mode: SortMode): string {
 	switch (mode) {
@@ -64,6 +65,8 @@ export class GtdBoardView extends ItemView {
 	private sidebarEl!: HTMLElement;
 	private sidebarToggleEl!: HTMLElement;
 	private viewModeSelectEl!: HTMLSelectElement;
+	/** Person der Personenansicht (viewMode "person", aus der Seitenleiste "Gespraeche"). */
+	private talkPerson = "";
 	/** Offenes Ausklapp-Panel eines Schnellknopfs (+ Aufgabe/Notiz/Besprechen) und sein Knopf. */
 	private quickPanelEl: HTMLElement | undefined;
 	private quickAnchorEl: HTMLElement | undefined;
@@ -380,13 +383,13 @@ export class GtdBoardView extends ItemView {
 		if (prev === "projects" && mode !== "projects") {
 			this.detailProject = undefined;
 		}
-		this.viewModeSelectEl.value = mode;
+		// Die Personenansicht hat keinen Eintrag in der Auswahl und wird nicht gemerkt.
+		this.viewModeSelectEl.value = mode === "person" ? "" : mode;
 		this.sortSelectEl.toggle(mode === "board" || mode === "projects" || mode === "contexts");
-		void this.plugin.saveUiState({ lastViewMode: mode });
+		if (mode !== "person") void this.plugin.saveUiState({ lastViewMode: mode });
 		this.renderBoard();
 	}
 
-	/** Blendet die Seitenleiste ein/aus; auf dem Desktop wird der Zustand gespeichert. */
 	/**
 	 * Schnellknoepfe links in der Toolbar. Jeder oeffnet ein Ausklapp-Panel darunter; ein zweiter
 	 * Klick, Esc oder ein Klick ausserhalb schliesst es. Auf Mobile nur Icons.
@@ -461,6 +464,7 @@ export class GtdBoardView extends ItemView {
 		this.quickAnchorEl = undefined;
 	}
 
+	/** Blendet die Seitenleiste ein/aus; auf dem Desktop wird der Zustand gespeichert. */
 	private setSidebarVisible(visible: boolean): void {
 		this.sidebarVisible = visible;
 		this.sidebarToggleEl.toggleClass("is-active", visible);
@@ -506,6 +510,22 @@ export class GtdBoardView extends ItemView {
 				this.setViewMode(entry.mode);
 				afterClick();
 			});
+		}
+
+		// Gespraeche: Personen mit offenen Themen; Klick oeffnet die Personenansicht.
+		const talkPeople = this.plugin.settings.agendaEnabled
+			? collectTalkPeople(this.tasks, AGENDA_LANE_ID).filter((p) => p.openTopics > 0)
+			: [];
+		if (talkPeople.length > 0) {
+			const group = this.createSidebarGroup(t("view.sidebar.talks"));
+			for (const person of talkPeople) {
+				const active = this.viewMode === "person" && this.talkPerson.toLowerCase() === person.name.toLowerCase();
+				this.addSidebarItem(group, "messages-square", person.name, person.openTopics, active, () => {
+					this.talkPerson = person.name;
+					this.setViewMode("person");
+					afterClick();
+				});
+			}
 		}
 
 		if (counts.people.length > 0) {
@@ -600,7 +620,11 @@ export class GtdBoardView extends ItemView {
 		this.boardEl.removeClass("gtd-board-projects-mode");
 		this.boardEl.removeClass("gtd-board-contexts-mode");
 		this.boardEl.removeClass("gtd-board-today-mode");
-		if (this.viewMode === "today") {
+		this.boardEl.removeClass("gtd-board-person-mode");
+		if (this.viewMode === "person" && this.talkPerson) {
+			this.boardEl.addClass("gtd-board-person-mode");
+			this.boardEl.appendChild(this.renderPersonView(this.talkPerson));
+		} else if (this.viewMode === "today") {
 			this.boardEl.addClass("gtd-board-today-mode");
 			this.boardEl.appendChild(this.renderToday());
 		} else if (this.viewMode === "agenda") {
@@ -625,6 +649,137 @@ export class GtdBoardView extends ItemView {
 		}
 		this.updateBulkBar();
 		this.renderSidebar();
+	}
+
+	/**
+	 * Personenansicht "Gespraeche": alles fuer ein Gespraech mit einer Person auf einen Blick -
+	 * Eingabefeld fuer neue Themen, offene Themen mit Anmerkungen und Aktionen, besprochene
+	 * Themen als Verlauf und die an die Person delegierten Aufgaben.
+	 */
+	private renderPersonView(person: string): HTMLElement {
+		const container = createDiv({ cls: "gtd-person-view" });
+		const key = person.trim().toLowerCase();
+		const isPerson = (name: string | undefined) => (name ?? "").trim().toLowerCase() === key;
+		const topics = this.tasks.filter((t) => t.laneId === AGENDA_LANE_ID && isPerson(t.person));
+		const open = topics.filter((t) => !t.done);
+		const done = topics
+			.filter((t) => t.done)
+			.sort((a, b) => (b.doneDate ?? "").localeCompare(a.doneDate ?? ""));
+		const delegated = this.tasks.filter((t) => !t.done && t.laneId !== AGENDA_LANE_ID && isPerson(t.delegatedTo));
+
+		const header = container.createDiv({ cls: "gtd-person-header" });
+		const titleEl = header.createDiv({ cls: "gtd-person-title" });
+		setIcon(titleEl.createSpan({ cls: "gtd-person-title-icon" }), "user");
+		titleEl.createSpan({ text: person });
+		const note = this.plugin.store.findPersonNote(person);
+		if (note) {
+			const openNote = header.createEl("button", { text: t("view.person.openNote") });
+			openNote.addEventListener("click", () => void this.app.workspace.getLeaf("tab").openFile(note));
+		}
+
+		const input = container.createEl("input", {
+			cls: "gtd-person-input",
+			attr: { type: "text", placeholder: t("view.person.newTopic", { name: person }) },
+		});
+		input.addEventListener("keydown", (evt) => {
+			if (evt.key !== "Enter" || evt.isComposing) return;
+			evt.preventDefault();
+			const topic = input.value.trim();
+			if (!topic) return;
+			void (async () => {
+				await this.plugin.store.addAgendaTopic(person, topic);
+				await this.refresh();
+				this.boardEl.querySelector<HTMLInputElement>(".gtd-person-input")?.focus();
+			})();
+		});
+
+		const openSection = container.createDiv({ cls: "gtd-person-section" });
+		openSection.createDiv({ cls: "gtd-person-section-title", text: t("view.person.openTopics", { count: open.length }) });
+		if (open.length === 0) {
+			openSection.createDiv({ cls: "gtd-person-empty", text: t("view.person.noOpenTopics") });
+		}
+		for (const topic of open) this.renderPersonTopic(openSection, topic);
+
+		if (delegated.length > 0) {
+			const section = container.createDiv({ cls: "gtd-person-section" });
+			section.createDiv({ cls: "gtd-person-section-title", text: t("view.person.delegated", { name: person }) });
+			for (const task of this.sortByDueAscending(delegated)) section.appendChild(this.renderCard(task, {}));
+		}
+
+		if (done.length > 0) {
+			const details = container.createEl("details", { cls: "gtd-person-section gtd-person-done" });
+			details.createEl("summary", { cls: "gtd-person-section-title", text: t("view.person.discussed", { count: done.length }) });
+			for (const topic of done) this.renderPersonTopic(details, topic);
+		}
+		return container;
+	}
+
+	/** Ein Thema der Personenansicht: Haken, Titel, Anmerkungen und Aktionen. */
+	private renderPersonTopic(parent: HTMLElement, topic: GtdTask): void {
+		const row = parent.createDiv({ cls: "gtd-person-topic" });
+		if (topic.done) row.addClass("is-done");
+		const main = row.createDiv({ cls: "gtd-person-topic-main" });
+		const checkbox = main.createEl("input", { cls: "task-list-item-checkbox", attr: { type: "checkbox" } });
+		checkbox.checked = topic.done;
+		checkbox.setAttribute("aria-label", topic.done ? t("view.person.reopen") : t("view.person.markDiscussed"));
+		checkbox.addEventListener("change", () => void this.toggleTaskDone(topic));
+		main.createSpan({ cls: "gtd-person-topic-title", text: topic.title });
+		if (topic.doneDate) main.createSpan({ cls: "gtd-person-topic-date", text: topic.doneDate });
+
+		const notes = topic.description
+			.split("\n")
+			.map((l) => l.trim())
+			.filter((l) => l.length > 0);
+		if (notes.length > 0) {
+			const list = row.createEl("ul", { cls: "gtd-person-topic-notes" });
+			for (const n of notes) list.createEl("li", { text: n });
+		}
+
+		const actions = row.createDiv({ cls: "gtd-person-topic-actions" });
+		const action = (icon: string, label: string, run: () => void) => {
+			const btn = actions.createEl("button", { cls: "clickable-icon", attr: { "aria-label": label, title: label } });
+			setIcon(btn, icon);
+			btn.addEventListener("click", run);
+		};
+		action("message-square-plus", t("view.person.addNote"), () => {
+			if (row.querySelector(".gtd-person-note-input")) return;
+			const noteInput = row.createEl("input", {
+				cls: "gtd-person-note-input",
+				attr: { type: "text", placeholder: t("view.person.notePlaceholder") },
+			});
+			noteInput.focus();
+			noteInput.addEventListener("keydown", (evt) => {
+				if (evt.key === "Escape") {
+					evt.stopPropagation();
+					noteInput.remove();
+					return;
+				}
+				if (evt.key !== "Enter" || evt.isComposing) return;
+				evt.preventDefault();
+				const text = noteInput.value.trim();
+				if (!text) return;
+				void (async () => {
+					if (topic.source === "inline") {
+						await this.plugin.store.addAgendaNote(topic, text);
+					} else {
+						const body = topic.description.trim();
+						await this.plugin.store.patchFileTaskBody(topic, `${body}${body ? "\n" : ""}- ${text}`);
+					}
+					await this.refresh();
+				})();
+			});
+		});
+		if (!topic.done) {
+			action("square-check", t("view.person.toTask"), () => void this.convertTopic(topic, false));
+			action("user-check", t("view.person.delegate", { name: topic.person ?? "" }), () => void this.convertTopic(topic, true));
+		}
+		action("file-text", t("view.person.open"), () => this.openTaskFile(topic));
+	}
+
+	private async convertTopic(topic: GtdTask, delegate: boolean): Promise<void> {
+		const file = await this.plugin.store.convertAgendaToTask(topic, delegate);
+		new Notice(t(delegate ? "view.person.delegatedNotice" : "view.person.convertedNotice", { title: file.basename }));
+		await this.refresh();
 	}
 
 	/**
@@ -1217,7 +1372,15 @@ export class GtdBoardView extends ItemView {
 
 				for (const person of persons) {
 					const group = body.createDiv({ cls: "gtd-agenda-person-group" });
-					group.createDiv({ cls: "gtd-agenda-person-header", text: `👤 ${person}` });
+					const personHeader = group.createDiv({
+						cls: "gtd-agenda-person-header",
+						text: `👤 ${person}`,
+						attr: { role: "button", tabindex: "0", title: t("view.person.openView") },
+					});
+					personHeader.addEventListener("click", () => {
+						this.talkPerson = person;
+						this.setViewMode("person");
+					});
 					for (const item of byPerson.get(person)!) {
 						group.appendChild(this.renderCard(item, { showPersonBadge: false }));
 					}
