@@ -1213,7 +1213,7 @@ export class GtdBoardView extends ItemView {
 		return [...tasks].sort((a, b) => this.compareByDueAscending(a, b));
 	}
 
-	/** Rendert die dedizierte Agendas-Lane: eine Karte je Person mit ihren offenen Themen. */
+	/** Rendert die dedizierte Agendas-Lane, gruppiert nach Person. */
 	private renderAgendaLane(): HTMLElement {
 		const collapsed = this.plugin.settings.collapsedLanes.includes(AGENDA_LANE_ID);
 		const laneColor = "#5ac8fa";
@@ -1264,23 +1264,32 @@ export class GtdBoardView extends ItemView {
 			} else {
 				const sorted = this.sortByDueAscending(agendaItemsFiltered);
 
-				// Eine Karte je Person mit ihren offenen Themen (Gross-/Kleinschreibung zaehlt nicht doppelt).
-				const byPerson = new Map<string, { name: string; items: GtdTask[] }>();
+				// Gruppierung nach Person
+				const byPerson = new Map<string, GtdTask[]>();
 				const noPerson: GtdTask[] = [];
 				for (const item of sorted) {
-					const name = item.person?.trim();
-					if (!name) {
+					if (item.person) {
+						if (!byPerson.has(item.person)) byPerson.set(item.person, []);
+						byPerson.get(item.person)!.push(item);
+					} else {
 						noPerson.push(item);
-						continue;
 					}
-					const key = name.toLowerCase();
-					const group = byPerson.get(key) ?? { name, items: [] };
-					group.items.push(item);
-					byPerson.set(key, group);
 				}
 
-				const groups = Array.from(byPerson.values()).sort((a, b) => a.name.localeCompare(b.name, intlLocale()));
-				for (const group of groups) body.appendChild(this.renderAgendaPersonCard(group.name, group.items));
+				const persons = Array.from(byPerson.keys()).sort((a, b) => a.localeCompare(b, intlLocale()));
+
+				for (const person of persons) {
+					const group = body.createDiv({ cls: "gtd-agenda-person-group" });
+					const personHeader = group.createDiv({
+						cls: "gtd-agenda-person-header",
+						text: `👤 ${person}`,
+						attr: { role: "button", tabindex: "0", title: t("view.person.openView") },
+					});
+					personHeader.addEventListener("click", () => this.openTalk(person));
+					for (const item of byPerson.get(person)!) {
+						group.appendChild(this.renderCard(item, { showPersonBadge: false }));
+					}
+				}
 
 				if (noPerson.length > 0) {
 					const group = body.createDiv({ cls: "gtd-agenda-person-group" });
@@ -1292,49 +1301,6 @@ export class GtdBoardView extends ItemView {
 		}
 
 		return laneEl;
-	}
-
-	/**
-	 * Karte einer Person in der Agendas-Lane: Name mit Zahl der offenen Themen, darunter die
-	 * Themen als abhakbare Liste. Klick auf Name oder Thema oeffnet "Besprechen mit".
-	 */
-	private renderAgendaPersonCard(person: string, items: GtdTask[]): HTMLElement {
-		const card = createDiv({ cls: "gtd-card gtd-agenda-person-card" });
-		card.setAttribute("title", t("view.person.openView"));
-		card.addEventListener("click", () => this.openTalk(person));
-
-		const header = card.createDiv({ cls: "gtd-agenda-person-card-header" });
-		const icon = header.createSpan({ cls: "gtd-agenda-person-card-icon" });
-		setIcon(icon, "user");
-		header.createSpan({ cls: "gtd-agenda-person-card-name", text: person });
-		header.createSpan({ cls: "gtd-lane-count", text: String(items.length) });
-
-		const list = card.createDiv({ cls: "gtd-agenda-person-card-topics" });
-		for (const item of items) {
-			const row = list.createDiv({ cls: "gtd-agenda-person-card-topic" });
-			const checkbox = row.createEl("input", {
-				cls: "gtd-card-done-checkbox",
-				attr: { type: "checkbox", title: t("view.person.markDiscussed") },
-			});
-			checkbox.addEventListener("click", (evt) => evt.stopPropagation());
-			checkbox.addEventListener("change", () => void this.toggleTaskDone(item));
-			row.createSpan({ cls: "gtd-agenda-person-card-title", text: item.title });
-			const notes = item.description.split("\n").filter((l) => l.trim().length > 0).length;
-			if (notes > 0) {
-				const noteEl = row.createSpan({
-					cls: "gtd-agenda-person-card-notes",
-					attr: { title: t("view.person.notesCount", { count: notes }) },
-				});
-				setIcon(noteEl, "message-square");
-				noteEl.createSpan({ text: String(notes) });
-			}
-			if (item.due) {
-				const dueEl = row.createSpan({ cls: "gtd-card-due", text: this.shortDue(item.due) });
-				const urgency = dueUrgency(item.due);
-				if (urgency) dueEl.addClass(`gtd-card-due-${urgency}`);
-			}
-		}
-		return card;
 	}
 
 	private renderLane(lane: LaneConfig): HTMLElement {

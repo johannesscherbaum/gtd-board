@@ -365,11 +365,10 @@ export const de = {
 			title: "Weitere Aktionen",
 		},
 		person: {
-			openView: "Besprechen mit dieser Person: alle Themen anzeigen und neue notieren",
+			openView: "Alle Themen und Aufgaben dieser Person anzeigen",
 			newTopic: "Neues Thema fuer {name} ...",
 			openTopics: "Offene Themen ({count})",
 			newPersonHint: "Neue Person: Mit dem ersten Thema wird die Notiz fuer {name} angelegt.",
-			notesCount: "{count} Anmerkung(en)",
 			noOpenTopics: "Keine offenen Themen.",
 			delegated: "An {name} delegiert",
 			discussed: "Besprochen ({count})",

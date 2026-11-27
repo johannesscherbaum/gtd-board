@@ -400,7 +400,7 @@
 	padding: 24px;
 }
 
-/* Agendas-Lane: Personenkarten (eine je Person) und Karten ohne Person */
+/* Agendas-Lane: Persongruppen und Karten */
 .gtd-agenda-person-group {
 	display: flex;
 	flex-direction: column;
@@ -410,6 +410,16 @@
 
 .gtd-agenda-person-group:last-child {
 	margin-bottom: 0;
+}
+
+.gtd-agenda-person-header {
+	font-size: 0.8em;
+	font-weight: 600;
+	color: var(--text-muted);
+	padding: 4px 2px 2px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 4px;
+	letter-spacing: 0.02em;
 }
 
 .gtd-agenda-lane-empty {
@@ -1732,6 +1742,10 @@
 	padding: 0;
 }
 
+.gtd-agenda-person-header[role="button"] {
+	cursor: var(--cursor);
+}
+
 /* Lanes in der Seitenleiste: Farbpunkt statt Icon. */
 .gtd-sidebar-item-icon.gtd-sidebar-lane-dot {
 	width: 14px;
@@ -1800,66 +1814,4 @@
 .gtd-today-section-chevron svg {
 	width: 14px;
 	height: 14px;
-}
-
-/* Agendas-Lane: eine Karte je Person mit ihren offenen Themen. */
-.gtd-agenda-person-card {
-	cursor: var(--cursor);
-}
-
-.gtd-agenda-person-card-header {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	font-weight: var(--font-semibold);
-	margin-bottom: 4px;
-}
-
-.gtd-agenda-person-card-icon {
-	display: inline-flex;
-	color: var(--text-muted);
-}
-
-.gtd-agenda-person-card-icon svg {
-	width: 14px;
-	height: 14px;
-}
-
-.gtd-agenda-person-card-name {
-	flex: 1 1 auto;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.gtd-agenda-person-card-topics {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.gtd-agenda-person-card-topic {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	font-size: var(--font-ui-small);
-}
-
-.gtd-agenda-person-card-title {
-	flex: 1 1 auto;
-	min-width: 0;
-}
-
-.gtd-agenda-person-card-notes {
-	display: inline-flex;
-	align-items: center;
-	gap: 2px;
-	font-size: var(--font-ui-smaller);
-	color: var(--text-muted);
-}
-
-.gtd-agenda-person-card-notes svg {
-	width: 12px;
-	height: 12px;
 }
