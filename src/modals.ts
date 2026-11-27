@@ -16,7 +16,7 @@ export interface TaskModalOptions extends TaskFormOptions {
 
 /**
  * Dialog zum Anlegen bzw. Bearbeiten einer Aufgabe. Die Felder liefert die gemeinsame
- * Komponente TaskForm (auch im Detailpanel der Board-Ansicht verwendet).
+ * Komponente TaskForm. Anlegen, Bearbeiten und Detailansicht laufen immer ueber diesen Dialog.
  */
 export class TaskModal extends Modal {
 	private form: TaskForm;
@@ -43,6 +43,12 @@ export class TaskModal extends Modal {
 				.onClick(() => void this.submit())
 		);
 		buttonRow.addButton((btn) => btn.setButtonText(t("taskModal.cancel")).onClick(() => this.close()));
+		// Strg/Cmd+Enter speichert, Esc verwirft (Standard des Modals).
+		this.scope.register(["Mod"], "Enter", (evt) => {
+			evt.preventDefault();
+			void this.submit();
+			return false;
+		});
 	}
 
 	private async submit(): Promise<void> {

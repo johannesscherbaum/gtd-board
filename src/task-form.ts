@@ -40,14 +40,13 @@ export interface TaskFormOptions {
 	showPersonField?: boolean;
 	/** Vorausgefuelltes Projekt (z. B. beim Anlegen aus der Projekteansicht). */
 	initialProject?: string;
-	/** Titelfeld beim Anzeigen fokussieren (Dialog ja, Detailpanel nein). */
+	/** Titelfeld beim Anzeigen fokussieren. */
 	autofocusTitle?: boolean;
 }
 
 /**
- * Gemeinsames Aufgaben-Formular fuer den Dialog (TaskModal) und das Detailpanel der Board-
- * Ansicht: Titel, Markdown-Beschreibung (Vorschau mit klickbaren Checkboxen), Faelligkeit und
- * Erinnerung mit Schnellwahl-Chips, Wiederholung, Prioritaet, Projekt, Person, Delegation,
+ * Aufgaben-Formular des Dialogs (TaskModal): Titel, Markdown-Beschreibung (Vorschau mit
+ * klickbaren Checkboxen), Faelligkeit und Erinnerung mit Schnellwahl-Chips, Wiederholung, Prioritaet, Projekt, Person, Delegation,
  * Kontexte, Tags, Tickler und Wiedervorlage. Haelt nur den Formularzustand; gespeichert wird
  * ueber den Aufrufer (getResult()).
  */

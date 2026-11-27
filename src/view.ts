@@ -30,7 +30,6 @@ function intlLocale(): string {
 	return getLocale() === "de" ? "de-DE" : "en-US";
 }
 import { ProcessModal, TaskModal, TaskModalOptions, confirmDialog } from "./modals";
-import { TaskDetailPanel } from "./detail-panel";
 import { QuickContext, openTalkModal, renderNotePanel, renderTalkPanel, renderTaskPanel } from "./quick-buttons";
 
 export const GTD_BOARD_VIEW_TYPE = "gtd-board-view";
@@ -79,8 +78,6 @@ export class GtdBoardView extends ItemView {
 	private quickPanelEl: HTMLElement | undefined;
 	private quickAnchorEl: HTMLElement | undefined;
 	private quickListenersRegistered = false;
-	/** Detailpanel rechts neben dem Board (Desktop); auf Mobile wird weiter der Dialog genutzt. */
-	private detailPanel!: TaskDetailPanel;
 	/** Kanban (Lanes nebeneinander), Agenda (flache Liste) oder Woche (Kalender-Raster). */
 	private viewMode: ViewMode = "board";
 	/** Montag der aktuell angezeigten Woche (nur fuer die Wochenansicht relevant). */
@@ -129,16 +126,12 @@ export class GtdBoardView extends ItemView {
 
 	async onClose(): Promise<void> {
 		this.closeQuickPanel();
-		this.detailPanel?.close();
 		this.contentEl.empty();
 	}
 
 	/** Laedt Aufgaben aus dem Store neu und zeichnet nur das Board (nicht die Toolbar) neu. */
 	async refresh(): Promise<void> {
 		this.tasks = await this.plugin.store.getAllTasks();
-		// Wurde die bearbeitete Aufgabe inzwischen geloescht oder umbenannt, Panel schliessen.
-		const panelTaskId = this.detailPanel?.taskId;
-		if (panelTaskId && !this.tasks.some((t) => t.id === panelTaskId)) this.detailPanel.close();
 		this.renderContextFilterOptions();
 		this.renderProjectFilterOptions();
 		this.renderBoard();
@@ -381,29 +374,14 @@ export class GtdBoardView extends ItemView {
 		const mainEl = container.createDiv({ cls: "gtd-board-main" });
 		this.sidebarEl = mainEl.createDiv({ cls: "gtd-board-sidebar" });
 		this.boardEl = mainEl.createDiv({ cls: "gtd-board" });
-		this.detailPanel = new TaskDetailPanel(mainEl.createDiv({ cls: "gtd-detail-panel" }), this.app, this.plugin);
 	}
 
 	/**
-	 * Oeffnet das Aufgaben-Formular: auf dem Desktop im Detailpanel neben dem Board, auf Mobile
-	 * (wenig Platz) weiterhin als Dialog. Beide nutzen dieselbe Komponente TaskForm.
+	 * Oeffnet das Aufgaben-Formular immer als Modal ueber dem Board (Anlegen, Bearbeiten,
+	 * Detailansicht), auf Desktop und Mobile gleich.
 	 */
 	private openTaskEditor(options: TaskModalOptions): void {
-		if (Platform.isMobile) {
-			new TaskModal(this.app, this.plugin, options).open();
-			return;
-		}
-		const task = options.task;
-		this.detailPanel.open({
-			...options,
-			autofocusTitle: options.mode === "create",
-			heading:
-				options.titleOverride ??
-				(options.mode === "create" ? t("taskModal.titleCreate") : t("taskModal.titleEdit")),
-			onOpenFile: task?.source === "file" ? () => this.openTaskFile(task) : undefined,
-			onClose: () => this.renderBoard(),
-		});
-		this.renderBoard();
+		new TaskModal(this.app, this.plugin, options).open();
 	}
 
 	private openTaskFile(task: GtdTask): void {
@@ -1621,7 +1599,6 @@ export class GtdBoardView extends ItemView {
 	): HTMLElement {
 		const card = createDiv({ cls: ["gtd-card", `gtd-card-priority-${task.priority ?? "medium"}`] });
 		if (task.source === "inline") card.addClass("gtd-card-inline");
-		if (this.detailPanel?.taskId === task.id) card.addClass("gtd-card-active");
 		card.setAttribute("draggable", "true");
 
 		card.addEventListener("dragstart", (evt) => {

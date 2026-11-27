@@ -101,12 +101,11 @@ A customizable GTD-based Kanban board for Obsidian.
   date in the collapsed header. An open subtask due today or earlier brings
   its task into the "Today" view (or the "Overdue" block). The task's own
   due date is not changed.
-- **Detail panel**: on desktop, clicking a card (or "+" in a lane) opens the
-  task form in a panel to the right of the board instead of a dialog, so the
-  board stays visible. Due date and reminder have quick-pick chips (Today,
-  Tomorrow, Next week, None; reminder: In 1 hr., Tomorrow 9:00, Next week,
-  None). Esc or "Cancel" discards changes, Ctrl/Cmd+Enter saves. On mobile
-  the dialog is used as before.
+- **Task dialog**: creating, editing and viewing a task always happens in a
+  dialog on top of the board (desktop and mobile). Due date and reminder have
+  quick-pick chips (Today, Tomorrow, Next week, None; reminder: In 1 hr.,
+  Tomorrow 9:00, Next week, None). Esc or "Cancel" discards changes,
+  Ctrl/Cmd+Enter saves.
 - **Sidebar**: a toggleable sidebar (panel icon at the left of the toolbar).
   "Lists" holds Today (with overdue count) and every lane with its colour
   and count; clicking a lane shows it as a full-width list. "Views" holds
