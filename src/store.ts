@@ -24,6 +24,7 @@ import {
 	toRecurrenceRule,
 	toTaskPriority,
 } from "./util";
+import { agendaNotes, hasAgendaTag, insertAgendaNote, insertAgendaTopic, parseAgendaLine, setAgendaLineDone } from "./agenda";
 
 /**
  * Liest Aufgaben-Dateien und Inline-Checkboxen aus dem Vault und bietet
@@ -52,6 +53,7 @@ export class GtdStore {
 			this.fileCache.delete(path);
 			this.fileCache.delete(`${path}:agenda`);
 			this.inlineCache.delete(path);
+			this.inlineCache.delete(`${path}:person`);
 		}
 	}
 
@@ -100,8 +102,7 @@ export class GtdStore {
 			}
 
 			if (agendaFolder && isPathInFolder(file.path, agendaFolder)) {
-				const task = await this.readFileTask(file, true);
-				if (task) tasks.push(task);
+				tasks.push(...(await this.readAgendaFolderFile(file)));
 				continue;
 			}
 
@@ -199,6 +200,108 @@ export class GtdStore {
 	}
 
 	/**
+	 * Datei im Agendas-Ordner: mit `lane:` im Frontmatter ein einzelner Agendapunkt (bisherige
+	 * Form, eine Datei pro Thema), sonst eine Personennotiz, deren Checkboxen die Themen sind.
+	 */
+	private async readAgendaFolderFile(file: TFile): Promise<GtdTask[]> {
+		const cacheKey = `${file.path}:person`;
+		const cached = this.inlineCache.get(cacheKey);
+		if (cached !== undefined && cached.mtime === file.stat.mtime) return cached.tasks;
+		const content = await this.app.vault.read(file);
+		const { frontmatter } = parseTaskFile(content);
+		let tasks: GtdTask[];
+		if (frontmatter.lane) {
+			const task = await this.readFileTask(file, true);
+			tasks = task ? [task] : [];
+		} else {
+			const person =
+				typeof frontmatter.person === "string" && frontmatter.person.trim() ? frontmatter.person.trim() : file.basename;
+			const lines = content.split(/\r?\n/);
+			tasks = [];
+			for (let i = bodyStartLine(lines); i < lines.length; i++) {
+				if (!isCheckboxLine(lines[i])) continue;
+				// Nur Themen der obersten Ebene; eingerueckte Checkboxen gehoeren als Anmerkung dazu.
+				if (/^\s/.test(lines[i])) continue;
+				const task = this.agendaTaskFromLine(file, lines, i, person);
+				if (task) tasks.push(task);
+			}
+		}
+		this.inlineCache.set(cacheKey, { mtime: file.stat.mtime, tasks });
+		return tasks;
+	}
+
+	/** Baut einen Agendapunkt aus einer Checkbox-Zeile (Personennotiz oder #gtd/agenda). */
+	private agendaTaskFromLine(file: TFile, lines: string[], index: number, person: string | undefined): GtdTask | null {
+		const parsed = parseAgendaLine(lines[index], this.settings.lanes);
+		if (!parsed || parsed.title.length === 0) return null;
+		const id = inlineTaskId(file.path, parsed.title);
+		return {
+			id,
+			source: "inline",
+			title: parsed.title,
+			description: agendaNotes(lines, index).join("\n"),
+			laneId: AGENDA_LANE_ID,
+			done: parsed.done,
+			doneDate: parsed.doneDate,
+			tags: parsed.tags,
+			contexts: [],
+			person: person?.trim() || undefined,
+			filePath: file.path,
+			line: index,
+			order: index,
+			lastTouched: this.touchedAt(id, file.stat.mtime),
+		};
+	}
+
+	/** Pfad der Personennotiz fuer die Agendas einer Person. */
+	personNotePath(person: string): string {
+		return joinPath(this.settings.agendaFolder, `${sanitizeFileName(person.trim())}.md`);
+	}
+
+	/** Sucht die Personennotiz einer Person (auch mit abweichender Gross-/Kleinschreibung). */
+	findPersonNote(person: string): TFile | undefined {
+		const direct = this.app.vault.getAbstractFileByPath(this.personNotePath(person));
+		if (direct instanceof TFile) return direct;
+		const folder = normalizePath(this.settings.agendaFolder);
+		const wanted = person.trim().toLowerCase();
+		return this.app.vault
+			.getMarkdownFiles()
+			.find((f) => isPathInFolder(f.path, folder) && f.basename.toLowerCase() === wanted);
+	}
+
+	/**
+	 * Neues Gespraechsthema fuer eine Person: landet als Checkbox in ihrer Personennotiz im
+	 * Agendas-Ordner (wird bei Bedarf angelegt, mit `person:` im Frontmatter).
+	 */
+	async addAgendaTopic(person: string, topic: string): Promise<TFile> {
+		const name = person.trim();
+		let file = this.findPersonNote(name);
+		if (!file) {
+			await this.ensureFolder(this.settings.agendaFolder);
+			const content = buildTaskFileContent({ person: name }, `# ${name}\n`);
+			file = await this.app.vault.create(this.personNotePath(name), content);
+		}
+		await this.app.vault.process(file, (content) => {
+			const lines = content.split(/\r?\n/);
+			return insertAgendaTopic(lines, topic, bodyStartLine(lines)).join("\n");
+		});
+		this.invalidateCacheFor(file.path);
+		return file;
+	}
+
+	/** Haengt eine Anmerkung (eingerueckter Listenpunkt) unter einen Inline-Agendapunkt. */
+	async addAgendaNote(task: GtdTask, text: string): Promise<void> {
+		const file = this.app.vault.getAbstractFileByPath(task.filePath);
+		if (!(file instanceof TFile) || task.source !== "inline") return;
+		await this.app.vault.process(file, (content) => {
+			const lines = content.split(/\r?\n/);
+			const index = this.findInlineLine(lines, task);
+			return index === -1 ? content : insertAgendaNote(lines, index, text).join("\n");
+		});
+		this.invalidateCacheFor(file.path);
+	}
+
+	/**
 	 * Juengerer Zeitpunkt aus Datei-Aenderungszeit und einem expliziten Review im Wochenrueckblick -
 	 * Grundlage der Auffrischungs-Markierungen ("Wartet auf" / "Irgendwann/Vielleicht"), da ein
 	 * reiner Review (ohne inhaltliche Aenderung) die Datei nicht anfasst.
@@ -226,6 +329,12 @@ export class GtdStore {
 			if (index < bodyStart) return;
 			const parsed = parseInlineLine(line, this.settings.lanes);
 			if (!parsed || parsed.title.length === 0) return;
+			// Zeilen mit #gtd/agenda sind Gespraechsthemen; 👤 nennt dann die Person, nicht die Delegation.
+			if (hasAgendaTag(parsed.tags)) {
+				const agendaTask = this.agendaTaskFromLine(file, lines, index, parsed.delegatedTo);
+				if (agendaTask) tasks.push(agendaTask);
+				return;
+			}
 			// laneId ist die per Tag erkannte "Herkunfts-Lane"; ob die Aufgabe in "Erledigt"
 			// angezeigt wird, entscheidet allein der Haken (done), nicht ein Tag.
 			const laneId = parsed.laneId ?? this.defaultLaneId();
@@ -523,7 +632,13 @@ export class GtdStore {
 		const lines = content.split(/\r?\n/);
 		const line = this.findInlineLine(lines, task);
 		if (line === -1) return;
-		lines[line] = rewriteInlineLineForLane(lines[line], this.settings.lanes, newLaneId);
+		if (task.laneId === AGENDA_LANE_ID) {
+			// Agendapunkte haben keine Lane-Tags: nur Haken und Besprochen-Datum aendern.
+			const toDone = !!this.settings.lanes.find((l) => l.id === newLaneId)?.isDone;
+			lines[line] = setAgendaLineDone(lines[line], toDone, formatLocalDate(new Date()));
+		} else {
+			lines[line] = rewriteInlineLineForLane(lines[line], this.settings.lanes, newLaneId);
+		}
 		await this.app.vault.modify(file, lines.join("\n"));
 		this.invalidateCacheFor(file.path);
 	}
@@ -642,14 +757,17 @@ export class GtdStore {
 
 	private findInlineLine(lines: string[], task: GtdTask): number {
 		const bodyStart = bodyStartLine(lines);
+		// Agendapunkte vergleichen den Titel ohne Besprochen-Datum (✅), sonst wie bisher.
+		const titleOf = (line: string) =>
+			task.laneId === AGENDA_LANE_ID
+				? parseAgendaLine(line, this.settings.lanes)?.title
+				: parseInlineLine(line, this.settings.lanes)?.title;
 		if (task.line !== undefined && task.line >= bodyStart && task.line < lines.length) {
-			const parsed = parseInlineLine(lines[task.line], this.settings.lanes);
-			if (parsed && parsed.title === task.title) return task.line;
+			if (titleOf(lines[task.line]) === task.title) return task.line;
 		}
 		for (let i = bodyStart; i < lines.length; i++) {
 			if (!isCheckboxLine(lines[i])) continue;
-			const parsed = parseInlineLine(lines[i], this.settings.lanes);
-			if (parsed && parsed.title === task.title) return i;
+			if (titleOf(lines[i]) === task.title) return i;
 		}
 		return -1;
 	}

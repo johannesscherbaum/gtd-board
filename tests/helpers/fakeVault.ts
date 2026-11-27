@@ -28,6 +28,14 @@ export class FakeVault {
 		file.stat = { ...file.stat, mtime: file.stat.mtime + 1 };
 	}
 
+	async process(file: TFile, fn: (content: string) => string): Promise<string> {
+		const entry = this.files.get(file.path);
+		if (!entry) throw new Error(`not found: ${file.path}`);
+		entry.content = fn(entry.content);
+		file.stat = { ...file.stat, mtime: file.stat.mtime + 1 };
+		return entry.content;
+	}
+
 	async create(path: string, content: string): Promise<TFile> {
 		const file = new TFile(path);
 		this.files.set(path, { file, content });

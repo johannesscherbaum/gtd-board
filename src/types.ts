@@ -101,6 +101,8 @@ export interface GtdTask {
 	project?: string;
 	/** Person, mit der dieser Agendapunkt besprochen werden soll (nur fuer Agenda-Eintraege). */
 	person?: string;
+	/** Nur Inline-Agendapunkte: Datum aus "✅ YYYY-MM-DD", an dem das Thema besprochen wurde. */
+	doneDate?: string;
 	filePath: string;
 	/** Nur bei Inline-Aufgaben gesetzt: Zeilennummer (0-basiert) in der Quelldatei. */
 	line?: number;
