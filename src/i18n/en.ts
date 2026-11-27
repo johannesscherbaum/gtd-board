@@ -352,6 +352,7 @@ export const en = {
 		selection: {
 			button: "Multi-select",
 			title: "Multi-select: mark several tasks to move or delete them together",
+			end: "End multi-select",
 		},
 		review: {
 			button: "Weekly review",

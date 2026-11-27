@@ -353,6 +353,7 @@ export const de = {
 		selection: {
 			button: "Mehrfachauswahl",
 			title: "Mehrfachauswahl: mehrere Aufgaben markieren, um sie gemeinsam zu verschieben oder zu loeschen",
+			end: "Mehrfachauswahl beenden",
 		},
 		review: {
 			button: "Wochenrueckblick",

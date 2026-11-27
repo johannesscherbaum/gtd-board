@@ -315,34 +315,65 @@ export class GtdBoardView extends ItemView {
 			void this.setSortMode(this.sortSelectEl.value as SortMode);
 		});
 
-		const selectionToggleBtn = this.createIconButton(
-			controlsParent,
-			"list-checks",
-			t("view.selection.button"),
-			"gtd-board-selection-toggle"
-		);
-		selectionToggleBtn.setAttribute("title", t("view.selection.title"));
-		selectionToggleBtn.addEventListener("click", () => {
+		const toggleSelection = () => {
 			this.selectionMode = !this.selectionMode;
-			selectionToggleBtn.toggleClass("is-active", this.selectionMode);
 			if (!this.selectionMode) this.selectedTaskIds.clear();
 			this.renderBoard();
-			closeMobileMenu();
-		});
+		};
 
-		const reviewBtn = this.createIconButton(controlsParent, "clipboard-check", t("view.review.button"));
-		reviewBtn.setAttribute("title", t("view.review.title"));
-		reviewBtn.addEventListener("click", () => {
-			void this.plugin.openWeeklyReview();
-			closeMobileMenu();
-		});
+		if (Platform.isMobile) {
+			// Mobile: wie bisher als Eintraege im Burger-Menue.
+			const selectionToggleBtn = this.createIconButton(
+				controlsParent,
+				"list-checks",
+				t("view.selection.button"),
+				"gtd-board-selection-toggle"
+			);
+			selectionToggleBtn.setAttribute("title", t("view.selection.title"));
+			selectionToggleBtn.addEventListener("click", () => {
+				toggleSelection();
+				selectionToggleBtn.toggleClass("is-active", this.selectionMode);
+				closeMobileMenu();
+			});
 
-		const refreshBtn = this.createIconButton(controlsParent, "refresh-cw", t("view.refresh.button"));
-		refreshBtn.setAttribute("title", t("view.refresh.title"));
-		refreshBtn.addEventListener("click", () => {
-			void this.refresh();
-			closeMobileMenu();
-		});
+			const reviewBtn = this.createIconButton(controlsParent, "clipboard-check", t("view.review.button"));
+			reviewBtn.setAttribute("title", t("view.review.title"));
+			reviewBtn.addEventListener("click", () => {
+				void this.plugin.openWeeklyReview();
+				closeMobileMenu();
+			});
+
+			const refreshBtn = this.createIconButton(controlsParent, "refresh-cw", t("view.refresh.button"));
+			refreshBtn.setAttribute("title", t("view.refresh.title"));
+			refreshBtn.addEventListener("click", () => {
+				void this.refresh();
+				closeMobileMenu();
+			});
+		} else {
+			// Desktop: selten genutzte Aktionen in einem "..."-Menue statt drei grosser Knoepfe.
+			const moreBtn = this.createIconButton(controlsParent, "more-horizontal", "", "gtd-board-more-btn");
+			moreBtn.setAttribute("aria-label", t("view.overflow.title"));
+			moreBtn.setAttribute("title", t("view.overflow.title"));
+			moreBtn.addEventListener("click", (evt) => {
+				const menu = new Menu();
+				menu.addItem((item) =>
+					item
+						.setTitle(this.selectionMode ? t("view.selection.end") : t("view.selection.button"))
+						.setIcon("list-checks")
+						.onClick(() => {
+							toggleSelection();
+							moreBtn.toggleClass("is-active", this.selectionMode);
+						})
+				);
+				menu.addItem((item) =>
+					item.setTitle(t("view.review.button")).setIcon("clipboard-check").onClick(() => void this.plugin.openWeeklyReview())
+				);
+				menu.addItem((item) =>
+					item.setTitle(t("view.refresh.button")).setIcon("refresh-cw").onClick(() => void this.refresh())
+				);
+				menu.showAtMouseEvent(evt);
+			});
+		}
 
 		this.bulkBarEl = container.createDiv({ cls: "gtd-bulk-bar" });
 		this.bulkBarEl.hide();
