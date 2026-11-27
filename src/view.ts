@@ -26,7 +26,7 @@ function intlLocale(): string {
 }
 import { ProcessModal, TaskModal, TaskModalOptions, confirmDialog } from "./modals";
 import { TaskDetailPanel } from "./detail-panel";
-import { QuickContext, renderNotePanel, renderTalkPanel, renderTaskPanel } from "./quick-buttons";
+import { QuickContext, openTalkModal, renderNotePanel, renderTalkPanel, renderTaskPanel } from "./quick-buttons";
 
 export const GTD_BOARD_VIEW_TYPE = "gtd-board-view";
 
@@ -367,7 +367,9 @@ export class GtdBoardView extends ItemView {
 	private openTaskFile(task: GtdTask): void {
 		const file = this.app.vault.getAbstractFileByPath(task.filePath);
 		if (file instanceof TFile) {
-			void this.app.workspace.getLeaf(true).openFile(file);
+			// Inline-Aufgaben: direkt an ihre Zeile springen.
+			const eState = task.source === "inline" && task.line !== undefined ? { line: task.line } : undefined;
+			void this.app.workspace.getLeaf(true).openFile(file, eState ? { eState } : undefined);
 		}
 	}
 
@@ -1940,31 +1942,17 @@ export class GtdBoardView extends ItemView {
 	}
 
 	private openCreateAgendaModal(): void {
-		this.openTaskEditor({
-			mode: "create",
-			laneId: AGENDA_LANE_ID,
-			showPersonField: true,
-			titleOverride: t("agendaModal.titleCreate"),
-			onSubmit: async (result) => {
-				await this.plugin.store.createAgendaFile({
-					title: result.title,
-					person: result.person,
-					description: result.description,
-					priority: result.priority,
-					contexts: result.contexts,
-					tags: result.tags,
-					recurrence: result.recurrence,
-					project: result.project,
-					due: result.due,
-					reminderAt: result.reminderAt,
-				});
-				await this.refresh();
-			},
-		});
+		void openTalkModal(this.app, this.plugin);
 	}
 
 	private openEditModal(task: GtdTask): void {
 		const isAgendaItem = task.laneId === AGENDA_LANE_ID;
+		// Agendapunkte in Personennotizen bzw. mit #gtd/agenda sind Zeilen einer Notiz: dort
+		// bearbeiten statt im Formular (das wuerde sie in eine Aufgaben-Datei umwandeln).
+		if (isAgendaItem && task.source === "inline") {
+			this.openTaskFile(task);
+			return;
+		}
 		this.openTaskEditor({
 			mode: "edit",
 			laneId: task.laneId,

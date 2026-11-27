@@ -9,6 +9,7 @@ export const en = {
 		exportIcs: "Run ICS export now",
 		weeklyReview: "Start weekly review",
 		dailyReview: "Open daily overview",
+		agendaCapture: "Capture agenda item (discuss with ...)",
 		newMeetingNote: "New meeting note",
 	},
 	ribbon: {

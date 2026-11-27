@@ -425,48 +425,6 @@ export class GtdStore {
 		return this.app.vault.create(path, content);
 	}
 
-	/** Legt einen neuen Agenda-Eintrag im konfigurierten Agendas-Ordner an. */
-	async createAgendaFile(options: {
-		title: string;
-		person?: string;
-		description?: string;
-		priority?: TaskPriority;
-		contexts?: string[];
-		tags?: string[];
-		recurrence?: RecurrenceRule;
-		project?: string;
-		due?: string;
-		reminderAt?: string;
-	}): Promise<TFile> {
-		const { title, person, description, priority, contexts, tags, recurrence, project, due, reminderAt } = options;
-		await this.ensureFolder(this.settings.agendaFolder);
-		const baseName = sanitizeFileName(title);
-		let fileName = `${baseName}.md`;
-		let counter = 2;
-		while (this.app.vault.getAbstractFileByPath(joinPath(this.settings.agendaFolder, fileName))) {
-			fileName = `${baseName} ${counter}.md`;
-			counter++;
-		}
-		const path = joinPath(this.settings.agendaFolder, fileName);
-		const content = buildTaskFileContent(
-			{
-				lane: AGENDA_LANE_ID,
-				person: person?.trim() || undefined,
-				due: due?.trim() || undefined,
-				reminder: reminderAt?.trim() || undefined,
-				priority: priority && priority !== "medium" ? priority : undefined,
-				contexts: contexts && contexts.length > 0 ? contexts : undefined,
-				tags: tags && tags.length > 0 ? tags : undefined,
-				recurrence,
-				project: project?.trim() || undefined,
-				created: nowISO(),
-				order: Date.now(),
-			},
-			description ?? ""
-		);
-		return this.app.vault.create(path, content);
-	}
-
 	/** Aktualisiert Titel, Beschreibung, Faelligkeit, Erinnerung, Prioritaet, Wiederholung, Kontexte und Tags einer Datei-Aufgabe. */
 	async updateTaskFile(
 		task: GtdTask,

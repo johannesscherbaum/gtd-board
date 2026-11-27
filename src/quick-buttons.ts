@@ -1,4 +1,4 @@
-import { App, Notice, setIcon } from "obsidian";
+import { App, Modal, Notice, setIcon } from "obsidian";
 import type GtdBoardPlugin from "./main";
 import { AGENDA_LANE_ID, GtdTask } from "./types";
 import { MeetingEvent } from "./meeting-ics";
@@ -226,9 +226,10 @@ export function renderNotePanel(el: HTMLElement, ctx: QuickContext): void {
 
 /**
  * "+ Besprechen": Thema fuer ein Gespraech mit einer Person notieren. Person aus der Liste
- * waehlen (mit Zahl offener Themen) oder neu eintippen; angelegt wird ein Agendapunkt.
+ * waehlen (mit Zahl offener Themen) oder neu eintippen; das Thema landet als Checkbox in der
+ * Personennotiz im Agendas-Ordner.
  */
-export function renderTalkPanel(el: HTMLElement, ctx: QuickContext): void {
+export function renderTalkPanel(el: HTMLElement, ctx: QuickContext, presetPerson?: string): void {
 	const { plugin } = ctx;
 	header(el, t("quick.talk.title"));
 
@@ -284,7 +285,7 @@ export function renderTalkPanel(el: HTMLElement, ctx: QuickContext): void {
 			topicInput.focus();
 			return;
 		}
-		await plugin.store.createAgendaFile({ title: topic, person });
+		await plugin.store.addAgendaTopic(person, topic);
 		const known = people.find((p) => p.name.toLowerCase() === person.toLowerCase());
 		if (known) known.openTopics++;
 		else people.unshift({ name: person, openTopics: 1 });
@@ -301,6 +302,37 @@ export function renderTalkPanel(el: HTMLElement, ctx: QuickContext): void {
 	const createBtn = actions.createEl("button", { cls: "mod-cta", text: t("quick.create") });
 	createBtn.addEventListener("click", () => void submit());
 
+	if (presetPerson) personInput.value = presetPerson;
 	renderPeople();
-	focusLater(personInput);
+	focusLater(presetPerson ? topicInput : personInput);
+}
+
+/**
+ * Dialog "Agendapunkt erfassen" (Befehl, Hotkey) bzw. "+" der Agendas-Lane: dasselbe Panel wie
+ * "+ Besprechen", nur als Dialog, damit es auch ausserhalb des Boards funktioniert.
+ */
+export class TalkModal extends Modal {
+	constructor(app: App, private plugin: GtdBoardPlugin, private tasks: GtdTask[], private presetPerson?: string) {
+		super(app);
+	}
+
+	onOpen(): void {
+		this.modalEl.addClass("gtd-quick-modal");
+		renderTalkPanel(this.contentEl, {
+			app: this.app,
+			plugin: this.plugin,
+			tasks: () => this.tasks,
+			close: () => this.close(),
+		}, this.presetPerson);
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
+
+/** Laedt die aktuellen Aufgaben (fuer die Personenliste) und oeffnet den Dialog. */
+export async function openTalkModal(app: App, plugin: GtdBoardPlugin, presetPerson?: string): Promise<void> {
+	const tasks = await plugin.store.getAllTasks();
+	new TalkModal(app, plugin, tasks, presetPerson).open();
 }

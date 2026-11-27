@@ -9,6 +9,7 @@ export const de = {
 		exportIcs: "ICS-Export jetzt ausfuehren",
 		weeklyReview: "Wochenrueckblick starten",
 		dailyReview: "Tagesueberblick oeffnen",
+		agendaCapture: "Agendapunkt erfassen (Besprechen mit ...)",
 		newMeetingNote: "Neue Meeting-Notiz",
 	},
 	ribbon: {

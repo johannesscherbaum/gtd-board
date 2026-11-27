@@ -7,6 +7,7 @@ import { ReminderScheduler } from "./reminders";
 import { buildIcsContent, isPathInFolder, nowISO } from "./util";
 import { DailyReviewModal, QuickCaptureModal, ReviewModal } from "./modals";
 import { MeetingService, openNewMeetingNote } from "./meetings";
+import { openTalkModal } from "./quick-buttons";
 import { detectAndSetLocale, t } from "./i18n";
 
 /** Wie oft (Millisekunden) im Hintergrund auf faellige Archivierung/Wiederholungen geprueft wird. */
@@ -68,6 +69,12 @@ export default class GtdBoardPlugin extends Plugin {
 			id: "gtd-daily-review",
 			name: t("commands.dailyReview"),
 			callback: () => void this.openDailyReview(),
+		});
+
+		this.addCommand({
+			id: "gtd-agenda-capture",
+			name: t("commands.agendaCapture"),
+			callback: () => void openTalkModal(this.app, this),
 		});
 
 		this.addCommand({
