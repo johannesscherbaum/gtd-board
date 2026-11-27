@@ -1,5 +1,6 @@
 import {
 	agendaNotes,
+	buildAgendaSection,
 	insertAgendaNote,
 	insertAgendaTopic,
 	matchAttendeePeople,
@@ -103,5 +104,17 @@ describe("matchAttendeePeople", () => {
 		expect(
 			matchAttendeePeople(["Meier, Günther", "Regine Huber", "lukas@example.org"], ["Günther", "Regine Huber", "Anna", "Lukas"])
 		).toEqual(["Günther", "Regine Huber"]);
+	});
+});
+
+describe("buildAgendaSection", () => {
+	it("listet Themen pro Person ohne Checkboxen", () => {
+		expect(
+			buildAgendaSection([
+				{ person: "Günther", topics: ["Budget", "Urlaub"], notePath: "GTD/Agendas/Günther" },
+				{ person: "Anna", topics: [] },
+				{ person: "Regine", topics: ["Rollout"] },
+			])
+		).toBe("**Günther** · [[GTD/Agendas/Günther|Agenda]]\n- Budget\n- Urlaub\n\n**Regine**\n- Rollout");
 	});
 });

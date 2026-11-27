@@ -1,7 +1,9 @@
 import { App, Notice, SuggestModal, TFile, TFolder, normalizePath, requestUrl } from "obsidian";
 import type GtdBoardPlugin from "./main";
 import { MeetingEvent, noteMatchesMeeting, parseIcsEvents, renderMeetingTemplate } from "./meeting-ics";
-import { addDays, formatLocalDate, joinPath, sanitizeFileName } from "./util";
+import { addDays, collectTalkPeople, formatLocalDate, joinPath, sanitizeFileName } from "./util";
+import { buildAgendaSection, matchAttendeePeople } from "./agenda";
+import { AGENDA_LANE_ID } from "./types";
 import { getLocale, t } from "./i18n";
 
 /** Abgerufener Kalender bleibt so lange im Speicher, um nicht bei jedem Aufruf neu zu laden. */
@@ -126,6 +128,7 @@ export class MeetingService {
 			time,
 			location: event?.location ?? "",
 			attendees: event ? event.attendees.join(", ") : "",
+			agenda: event ? await this.openTopicsFor(event.attendees) : "",
 		};
 
 		const templatePath = this.plugin.settings.meetingTemplatePath.trim();
@@ -141,11 +144,11 @@ export class MeetingService {
 		const lines = [`# ${title}`, "", `${vars.date} · ${time}`];
 		if (vars.location) lines.push(`${t("meetings.location")}: ${vars.location}`);
 		if (vars.attendees) lines.push(`${t("meetings.attendees")}: ${vars.attendees}`);
+		// Abschnitt Agenda: offene Themen der Teilnehmer, sonst leer zum Ausfuellen.
+		lines.push("", `## ${t("meetings.agendaHeading")}`, "");
+		if (vars.agenda) lines.push(vars.agenda);
+		lines.push("");
 		lines.push(
-			"",
-			`## ${t("meetings.agendaHeading")}`,
-			"",
-			"",
 			`## ${t("meetings.notesHeading")}`,
 			"",
 			"",
@@ -153,6 +156,30 @@ export class MeetingService {
 			""
 		);
 		return lines.join("\n");
+	}
+
+	/**
+	 * Offene Gespraechsthemen der Teilnehmer als Markdown-Abschnitt (Platzhalter {{agenda}}),
+	 * leer ohne Agendas oder ohne passende Person.
+	 */
+	private async openTopicsFor(attendees: string[]): Promise<string> {
+		if (!this.plugin.settings.agendaEnabled || attendees.length === 0) return "";
+		const tasks = await this.plugin.store.getAllTasks();
+		const people = collectTalkPeople(tasks, AGENDA_LANE_ID).filter((p) => p.openTopics > 0);
+		const matched = matchAttendeePeople(
+			attendees,
+			people.map((p) => p.name)
+		);
+		return buildAgendaSection(
+			matched.map((person) => {
+				const key = person.toLowerCase();
+				const topics = tasks
+					.filter((task) => task.laneId === AGENDA_LANE_ID && !task.done && task.person?.trim().toLowerCase() === key)
+					.map((task) => task.title);
+				const note = this.plugin.store.findPersonNote(person);
+				return { person, topics, notePath: note?.path.replace(/\.md$/, "") };
+			})
+		);
 	}
 
 	private async ensureFolder(path: string): Promise<void> {

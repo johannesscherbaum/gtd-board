@@ -281,7 +281,7 @@ export const de = {
 		},
 		meetingTemplate: {
 			name: "Vorlage",
-			desc: "Optionale Notiz als Vorlage. Platzhalter: {{title}}, {{date}}, {{time}}, {{location}}, {{attendees}}. Leer = eingebaute Vorlage.",
+			desc: "Optionale Notiz als Vorlage. Platzhalter: {{title}}, {{date}}, {{time}}, {{location}}, {{attendees}}, {{agenda}} (offene Gespraechsthemen der Teilnehmer). Leer = eingebaute Vorlage.",
 			placeholder: "z. B. Vorlagen/Meeting",
 		},
 		agendaHeading: "Agendas",

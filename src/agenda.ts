@@ -149,3 +149,25 @@ export function matchAttendeePeople(attendees: string[], people: string[]): stri
 		return attendeeWords.some((aw) => personWords.every((pw) => aw.includes(pw)));
 	});
 }
+
+export interface AgendaForMeeting {
+	person: string;
+	topics: string[];
+	/** Link-Ziel der Personennotiz (Pfad ohne .md), falls vorhanden. */
+	notePath?: string;
+}
+
+/**
+ * Abschnitt "offene Themen" fuer eine Meeting-Notiz: pro Person eine Zeile mit Link auf ihre
+ * Personennotiz, darunter die Themen als einfache Liste. Bewusst ohne Checkboxen, damit sie
+ * nicht als weitere Aufgaben bzw. Agendapunkte gelesen werden.
+ */
+export function buildAgendaSection(entries: AgendaForMeeting[]): string {
+	const blocks = entries
+		.filter((e) => e.topics.length > 0)
+		.map((e) => {
+			const head = e.notePath ? `**${e.person}** · [[${e.notePath}|Agenda]]` : `**${e.person}**`;
+			return [head, ...e.topics.map((topic) => `- ${topic}`)].join("\n");
+		});
+	return blocks.join("\n\n");
+}

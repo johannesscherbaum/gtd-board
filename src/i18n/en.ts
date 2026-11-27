@@ -280,7 +280,7 @@ export const en = {
 		},
 		meetingTemplate: {
 			name: "Template",
-			desc: "Optional note used as template. Placeholders: {{title}}, {{date}}, {{time}}, {{location}}, {{attendees}}. Empty = built-in template.",
+			desc: "Optional note used as template. Placeholders: {{title}}, {{date}}, {{time}}, {{location}}, {{attendees}}, {{agenda}} (open discussion topics of the attendees). Empty = built-in template.",
 			placeholder: "e.g. Templates/Meeting",
 		},
 		agendaHeading: "Agendas",
