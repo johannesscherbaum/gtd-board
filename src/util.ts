@@ -569,6 +569,56 @@ export function buildSidebarCounts(tasks: GtdTask[], agendaLaneId: string, now: 
 	};
 }
 
+/** Person fuer "Besprechen mit": Name und Zahl der offenen Gespraechsthemen. */
+export interface TalkPerson {
+	name: string;
+	openTopics: number;
+}
+
+/**
+ * Personen fuer die Auswahl "Besprechen mit": alle mit offenen Agendapunkten (nach Zahl der
+ * Themen absteigend), danach Personen, die nur aus `person` erledigter Agendapunkte oder aus
+ * `delegatedTo` bekannt sind (alphabetisch, 0 Themen). Gross-/Kleinschreibung zaehlt nicht
+ * doppelt; es gewinnt die zuerst gefundene Schreibweise einer offenen Agenda.
+ */
+export function collectTalkPeople(tasks: GtdTask[], agendaLaneId: string): TalkPerson[] {
+	const byKey = new Map<string, TalkPerson>();
+	const add = (raw: string | undefined, open: boolean) => {
+		const name = raw?.trim();
+		if (!name) return;
+		const key = name.toLowerCase();
+		const entry = byKey.get(key);
+		if (entry) {
+			if (open) entry.openTopics++;
+		} else {
+			byKey.set(key, { name, openTopics: open ? 1 : 0 });
+		}
+	};
+	// Erst offene Agendapunkte, damit deren Schreibweise gewinnt.
+	for (const task of tasks) {
+		if (task.laneId === agendaLaneId && !task.done) add(task.person, true);
+	}
+	for (const task of tasks) {
+		if (task.laneId === agendaLaneId) {
+			if (task.done) add(task.person, false);
+		} else {
+			add(task.delegatedTo, false);
+		}
+	}
+	return Array.from(byKey.values()).sort(
+		(a, b) => b.openTopics - a.openTopics || a.name.localeCompare(b.name)
+	);
+}
+
+/** Kurzbezeichnung eines Tages relativ zu heute, sonst undefined (dann Datum anzeigen). */
+export function relativeDayKey(day: Date, now: Date = new Date()): "today" | "tomorrow" | "yesterday" | undefined {
+	const target = formatLocalDate(day);
+	if (target === formatLocalDate(now)) return "today";
+	if (target === formatLocalDate(addDays(now, 1))) return "tomorrow";
+	if (target === formatLocalDate(addDays(now, -1))) return "yesterday";
+	return undefined;
+}
+
 /** Heute-Fokus: offene Aufgaben, die ueberfaellig sind, und solche, die heute anstehen. */
 export interface TodayFocus {
 	/** Faelligkeitstag liegt vor heute (unabhaengig von einer Heute-Markierung). */

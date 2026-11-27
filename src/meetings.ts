@@ -7,7 +7,7 @@ import { getLocale, t } from "./i18n";
 /** Abgerufener Kalender bleibt so lange im Speicher, um nicht bei jedem Aufruf neu zu laden. */
 const CACHE_MS = 5 * 60_000;
 
-type LoadResult = { events: MeetingEvent[] } | { error: "no-calendar" | "fetch-failed" | "parse-failed" };
+export type LoadResult = { events: MeetingEvent[] } | { error: "no-calendar" | "fetch-failed" | "parse-failed" };
 
 /**
  * Meeting-Notizen: liest die Termine des Tages aus einem ICS-Kalender (URL liegt im Obsidian-
@@ -28,6 +28,11 @@ export class MeetingService {
 
 	/** Termine von heute (lokale Zeit, 00:00 bis 24:00), nach Beginn sortiert. */
 	async loadTodayEvents(now: Date = new Date()): Promise<LoadResult> {
+		return this.loadEvents(now);
+	}
+
+	/** Termine eines beliebigen Tages (lokale Zeit, 00:00 bis 24:00), nach Beginn sortiert. */
+	async loadEvents(day: Date): Promise<LoadResult> {
 		const secretId = this.plugin.settings.meetingIcsSecret.trim();
 		const url = secretId ? this.app.secretStorage.getSecret(secretId) : null;
 		if (!url) return { error: "no-calendar" };
@@ -51,7 +56,7 @@ export class MeetingService {
 			this.cache = { fetchedAt: Date.now(), text };
 		}
 
-		const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
 		try {
 			return { events: parseIcsEvents(text, dayStart, addDays(dayStart, 1)) };
 		} catch {
@@ -134,7 +139,17 @@ export class MeetingService {
 		const lines = [`# ${title}`, "", `${vars.date} · ${time}`];
 		if (vars.location) lines.push(`${t("meetings.location")}: ${vars.location}`);
 		if (vars.attendees) lines.push(`${t("meetings.attendees")}: ${vars.attendees}`);
-		lines.push("", `## ${t("meetings.notesHeading")}`, "", "", `## ${t("meetings.tasksHeading")}`, "");
+		lines.push(
+			"",
+			`## ${t("meetings.agendaHeading")}`,
+			"",
+			"",
+			`## ${t("meetings.notesHeading")}`,
+			"",
+			"",
+			`## ${t("meetings.tasksHeading")}`,
+			""
+		);
 		return lines.join("\n");
 	}
 

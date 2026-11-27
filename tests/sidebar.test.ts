@@ -1,5 +1,5 @@
 import { AGENDA_LANE_ID, GtdTask } from "../src/types";
-import { buildSidebarCounts } from "../src/util";
+import { buildSidebarCounts, collectTalkPeople, relativeDayKey } from "../src/util";
 
 function task(partial: Partial<GtdTask>): GtdTask {
 	return {
@@ -61,5 +61,38 @@ describe("buildSidebarCounts", () => {
 		expect(empty.projects).toEqual([]);
 		expect(empty.origins).toEqual([]);
 		expect(empty.open).toBe(1);
+	});
+});
+
+describe("collectTalkPeople", () => {
+	it("Personen mit offenen Themen zuerst, dann bekannte Namen ohne Themen", () => {
+		const people = collectTalkPeople(
+			[
+				task({ title: "a1", laneId: AGENDA_LANE_ID, person: "Günther" }),
+				task({ title: "a2", laneId: AGENDA_LANE_ID, person: "günther " }),
+				task({ title: "a3", laneId: AGENDA_LANE_ID, person: "Regine" }),
+				task({ title: "a4", laneId: AGENDA_LANE_ID, person: "Lukas", done: true }),
+				task({ title: "d1", delegatedTo: "Anna" }),
+				task({ title: "d2", delegatedTo: "Regine" }),
+				task({ title: "ohne" }),
+			],
+			AGENDA_LANE_ID
+		);
+		expect(people).toEqual([
+			{ name: "Günther", openTopics: 2 },
+			{ name: "Regine", openTopics: 1 },
+			{ name: "Anna", openTopics: 0 },
+			{ name: "Lukas", openTopics: 0 },
+		]);
+	});
+});
+
+describe("relativeDayKey", () => {
+	const now = new Date(2026, 10, 27, 7, 0);
+	it("erkennt heute, morgen und gestern, sonst undefined", () => {
+		expect(relativeDayKey(new Date(2026, 10, 27, 23, 0), now)).toBe("today");
+		expect(relativeDayKey(new Date(2026, 10, 28), now)).toBe("tomorrow");
+		expect(relativeDayKey(new Date(2026, 10, 26), now)).toBe("yesterday");
+		expect(relativeDayKey(new Date(2026, 11, 1), now)).toBeUndefined();
 	});
 });

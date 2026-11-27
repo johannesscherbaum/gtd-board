@@ -133,51 +133,61 @@ export class QuickCaptureModal extends Modal {
 	}
 
 	private async submit(): Promise<void> {
-		const raw = this.title.trim();
-		if (raw.length === 0) {
-			this.close();
-			return;
-		}
-		const parsed = parseQuickCapture(raw, this.plugin.settings.lanes);
-		const title = parsed && parsed.title.length > 0 ? parsed.title : raw;
-		const laneId = parsed?.laneId ?? this.laneId;
-		// Landet die Schnellerfassung mit Faelligkeit in der Eingang-Lane, gleich direkt in
-		// "Naechste Aktionen" anlegen, statt sie erst dorthin verschieben zu muessen.
-		const targetLaneId =
-			shouldPromoteFromInbox(
-				laneId,
-				parsed?.due,
-				this.plugin.settings.lanes,
-				this.plugin.settings.autoPromoteInboxOnDueDate
-			) ?? laneId;
-		let targetFolder: string | undefined;
-		const projectRoot = this.plugin.settings.projectRootFolder?.trim();
-		if (projectRoot && parsed?.project) {
-			const folderPath = normalizePath(`${projectRoot}/${parsed.project}`);
-			if (this.app.vault.getAbstractFileByPath(folderPath) instanceof TFolder) {
-				targetFolder = folderPath;
-			}
-		}
-		await this.plugin.store.createTaskFile({
-			laneId: targetLaneId,
-			title,
-			description: "",
-			priority: parsed?.priority,
-			contexts: parsed?.contexts,
-			recurrence: parsed?.recurrence,
-			delegatedTo: parsed?.delegatedTo,
-			project: parsed?.project,
-			due: parsed?.due,
-			targetFolder,
-		});
-		await this.plugin.refreshBoardViews();
-		new Notice(t("quickCapture.captured", { title }));
+		const title = await captureQuickTask(this.app, this.plugin, this.title, this.laneId);
+		if (title) new Notice(t("quickCapture.captured", { title }));
 		this.close();
 	}
 
 	onClose(): void {
 		this.contentEl.empty();
 	}
+}
+
+/**
+ * Legt aus einer Schnellerfassungs-Zeile (Syntax wie inline: 📅, @Kontext, +Projekt, 👤, ...)
+ * eine Datei-Aufgabe an. Gemeinsam fuer den Schnellerfassungs-Dialog und den Knopf
+ * "+ Aufgabe" im Board. Gibt den Titel der angelegten Aufgabe zurueck, bei leerer Eingabe
+ * undefined.
+ */
+export async function captureQuickTask(
+	app: App,
+	plugin: GtdBoardPlugin,
+	input: string,
+	defaultLaneId: string,
+	dueOverride?: string
+): Promise<string | undefined> {
+	const raw = input.trim();
+	if (raw.length === 0) return undefined;
+	const parsed = parseQuickCapture(raw, plugin.settings.lanes);
+	const title = parsed && parsed.title.length > 0 ? parsed.title : raw;
+	const laneId = parsed?.laneId ?? defaultLaneId;
+	const due = dueOverride ?? parsed?.due;
+	// Landet die Schnellerfassung mit Faelligkeit in der Eingang-Lane, gleich direkt in
+	// "Naechste Aktionen" anlegen, statt sie erst dorthin verschieben zu muessen.
+	const targetLaneId =
+		shouldPromoteFromInbox(laneId, due, plugin.settings.lanes, plugin.settings.autoPromoteInboxOnDueDate) ?? laneId;
+	let targetFolder: string | undefined;
+	const projectRoot = plugin.settings.projectRootFolder?.trim();
+	if (projectRoot && parsed?.project) {
+		const folderPath = normalizePath(`${projectRoot}/${parsed.project}`);
+		if (app.vault.getAbstractFileByPath(folderPath) instanceof TFolder) {
+			targetFolder = folderPath;
+		}
+	}
+	await plugin.store.createTaskFile({
+		laneId: targetLaneId,
+		title,
+		description: "",
+		priority: parsed?.priority,
+		contexts: parsed?.contexts,
+		recurrence: parsed?.recurrence,
+		delegatedTo: parsed?.delegatedTo,
+		project: parsed?.project,
+		due,
+		targetFolder,
+	});
+	await plugin.refreshBoardViews();
+	return title;
 }
 
 /**

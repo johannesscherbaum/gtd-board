@@ -421,6 +421,7 @@ export const en = {
 		defaultTitle: "Meeting",
 		location: "Location",
 		attendees: "Attendees",
+		agendaHeading: "Agenda",
 		notesHeading: "Notes",
 		tasksHeading: "Tasks",
 		fetchFailed: "Calendar could not be loaded. Only notes without event are possible.",

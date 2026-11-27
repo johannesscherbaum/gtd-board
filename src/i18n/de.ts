@@ -422,6 +422,7 @@ export const de = {
 		defaultTitle: "Meeting",
 		location: "Ort",
 		attendees: "Teilnehmer",
+		agendaHeading: "Agenda",
 		notesHeading: "Notizen",
 		tasksHeading: "Aufgaben",
 		fetchFailed: "Kalender konnte nicht geladen werden. Nur Notizen ohne Termin moeglich.",
