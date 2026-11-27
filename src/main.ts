@@ -74,7 +74,7 @@ export default class GtdBoardPlugin extends Plugin {
 		this.addCommand({
 			id: "gtd-agenda-capture",
 			name: t("commands.agendaCapture"),
-			callback: () => void openTalkModal(this.app, this),
+			callback: () => openTalkModal(this.app, this),
 		});
 
 		this.addCommand({

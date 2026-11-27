@@ -2,26 +2,23 @@ import { App, Modal, Notice, setIcon } from "obsidian";
 import type GtdBoardPlugin from "./main";
 import { AGENDA_LANE_ID, GtdTask } from "./types";
 import { MeetingEvent } from "./meeting-ics";
+import { renderPersonDetail } from "./person-view";
 import { captureQuickTask, describeQuickCapture } from "./modals";
 import { addDays, collectTalkPeople, dueChipDate, DueChip, parseQuickCapture, relativeDayKey } from "./util";
 import { getLocale, t } from "./i18n";
 
 /**
- * Schnellknoepfe im Board ("+ Aufgabe", "+ Notiz", "+ Besprechen"): jeweils ein kleines
- * Ausklapp-Panel unter dem Knopf, damit das Board der zentrale Bildschirm sein kann. Die
- * Panels nutzen nur vorhandene Logik (Schnellerfassung, Meeting-Notizen, Agenda-Dateien).
+ * Schnellknoepfe im Board ("+ Aufgabe", "+ Notiz", "+ Besprechen") und gleichnamige Befehle:
+ * jeweils ein Modal ueber dem Board, damit das Board der zentrale Bildschirm bleibt. Nutzt nur
+ * vorhandene Logik (Schnellerfassung, Meeting-Notizen, Agendas).
  */
 export interface QuickContext {
 	app: App;
 	plugin: GtdBoardPlugin;
-	/** Aktuelle Aufgaben des Boards (fuer die Personenliste). */
-	tasks: () => GtdTask[];
-	/** Schliesst das Panel. */
+	/** Setzt den Titel des Modals. */
+	setTitle: (text: string) => void;
+	/** Schliesst das Modal. */
 	close: () => void;
-}
-
-function header(el: HTMLElement, text: string): void {
-	el.createDiv({ cls: "gtd-quick-title", text });
 }
 
 function section(el: HTMLElement, text: string): void {
@@ -44,7 +41,7 @@ function focusLater(input: HTMLInputElement): void {
 /** "+ Aufgabe": Titel mit Schnellerfassungs-Syntax, Faelligkeit per Chip, Ziel-Liste. */
 export function renderTaskPanel(el: HTMLElement, ctx: QuickContext): void {
 	const { plugin } = ctx;
-	header(el, t("quick.task.title"));
+	ctx.setTitle(t("quick.task.title"));
 
 	const input = el.createEl("input", {
 		cls: "gtd-quick-input",
@@ -114,7 +111,7 @@ export function renderTaskPanel(el: HTMLElement, ctx: QuickContext): void {
 export function renderNotePanel(el: HTMLElement, ctx: QuickContext): void {
 	const { plugin } = ctx;
 	const service = plugin.meetings;
-	header(el, t("quick.note.title"));
+	ctx.setTitle(t("quick.note.title"));
 
 	section(el, t("quick.note.withEvent"));
 	const nav = el.createDiv({ cls: "gtd-quick-daynav" });
@@ -225,105 +222,26 @@ export function renderNotePanel(el: HTMLElement, ctx: QuickContext): void {
 }
 
 /**
- * "+ Besprechen": Thema fuer ein Gespraech mit einer Person notieren. Person aus der Liste
- * waehlen (mit Zahl offener Themen) oder neu eintippen; das Thema landet als Checkbox in der
- * Personennotiz im Agendas-Ordner.
+ * Generisches Modal fuer die Schnellerfassung ("+ Aufgabe", "+ Notiz"): dieselben Inhalte wie
+ * vorher im Ausklapp-Panel, aber als Dialog ueber dem Board.
  */
-export function renderTalkPanel(el: HTMLElement, ctx: QuickContext, presetPerson?: string): void {
-	const { plugin } = ctx;
-	header(el, t("quick.talk.title"));
-
-	if (!plugin.settings.agendaEnabled) {
-		el.createDiv({ cls: "gtd-quick-empty", text: t("quick.talk.disabled") });
-		return;
-	}
-
-	section(el, t("quick.talk.person"));
-	const personInput = el.createEl("input", {
-		cls: "gtd-quick-input",
-		attr: { type: "text", placeholder: t("quick.talk.personPlaceholder") },
-	});
-	const peopleList = el.createDiv({ cls: "gtd-quick-people" });
-	const people = collectTalkPeople(ctx.tasks(), AGENDA_LANE_ID);
-
-	section(el, t("quick.talk.topic"));
-	const topicInput = el.createEl("input", {
-		cls: "gtd-quick-input",
-		attr: { type: "text", placeholder: t("quick.talk.topicPlaceholder") },
-	});
-
-	const renderPeople = () => {
-		peopleList.empty();
-		const q = personInput.value.trim().toLowerCase();
-		const matches = people.filter((p) => !q || p.name.toLowerCase().includes(q));
-		for (const person of matches.slice(0, 8)) {
-			const chip = peopleList.createEl("button", { cls: "gtd-quick-chip" });
-			chip.toggleClass("is-active", person.name.toLowerCase() === q);
-			chip.createSpan({ text: person.name });
-			if (person.openTopics > 0) chip.createSpan({ cls: "gtd-quick-chip-count", text: String(person.openTopics) });
-			chip.addEventListener("click", () => {
-				personInput.value = person.name;
-				renderPeople();
-				topicInput.focus();
-			});
-		}
-		if (q && !people.some((p) => p.name.toLowerCase() === q)) {
-			peopleList.createDiv({ cls: "gtd-quick-hint", text: t("quick.talk.newPerson", { name: personInput.value.trim() }) });
-		}
-	};
-	personInput.addEventListener("input", renderPeople);
-	onEnter(personInput, () => topicInput.focus());
-
-	const submit = async () => {
-		const person = personInput.value.trim();
-		const topic = topicInput.value.trim();
-		if (!person) {
-			personInput.focus();
-			return;
-		}
-		if (!topic) {
-			topicInput.focus();
-			return;
-		}
-		await plugin.store.addAgendaTopic(person, topic);
-		const known = people.find((p) => p.name.toLowerCase() === person.toLowerCase());
-		if (known) known.openTopics++;
-		else people.unshift({ name: person, openTopics: 1 });
-		renderPeople();
-		await plugin.refreshBoardViews();
-		new Notice(t("quick.talk.captured", { name: person }));
-		// Person bleibt stehen, damit gleich weitere Themen fuer sie folgen koennen.
-		topicInput.value = "";
-		topicInput.focus();
-	};
-	onEnter(topicInput, () => void submit());
-
-	const actions = el.createDiv({ cls: "gtd-quick-actions" });
-	const createBtn = actions.createEl("button", { cls: "mod-cta", text: t("quick.create") });
-	createBtn.addEventListener("click", () => void submit());
-
-	if (presetPerson) personInput.value = presetPerson;
-	renderPeople();
-	focusLater(presetPerson ? topicInput : personInput);
-}
-
-/**
- * Dialog "Agendapunkt erfassen" (Befehl, Hotkey) bzw. "+" der Agendas-Lane: dasselbe Panel wie
- * "+ Besprechen", nur als Dialog, damit es auch ausserhalb des Boards funktioniert.
- */
-export class TalkModal extends Modal {
-	constructor(app: App, private plugin: GtdBoardPlugin, private tasks: GtdTask[], private presetPerson?: string) {
+export class QuickModal extends Modal {
+	constructor(
+		app: App,
+		private plugin: GtdBoardPlugin,
+		private render: (el: HTMLElement, ctx: QuickContext) => void
+	) {
 		super(app);
 	}
 
 	onOpen(): void {
 		this.modalEl.addClass("gtd-quick-modal");
-		renderTalkPanel(this.contentEl, {
+		this.render(this.contentEl, {
 			app: this.app,
 			plugin: this.plugin,
-			tasks: () => this.tasks,
+			setTitle: (text) => this.setTitle(text),
 			close: () => this.close(),
-		}, this.presetPerson);
+		});
 	}
 
 	onClose(): void {
@@ -331,8 +249,131 @@ export class TalkModal extends Modal {
 	}
 }
 
-/** Laedt die aktuellen Aufgaben (fuer die Personenliste) und oeffnet den Dialog. */
-export async function openTalkModal(app: App, plugin: GtdBoardPlugin, presetPerson?: string): Promise<void> {
-	const tasks = await plugin.store.getAllTasks();
-	new TalkModal(app, plugin, tasks, presetPerson).open();
+/**
+ * "Besprechen mit" (Knopf, Befehl, Seitenleiste "Gespraeche", Agendas-Lane): oben die Person
+ * waehlen (bekannte Personen mit Zahl offener Themen) oder einen neuen Namen eintippen; darunter
+ * erscheint fuer diese Person alles Vorhandene (Themen, Anmerkungen, Delegiertes, Verlauf) samt
+ * Eingabefeld fuer neue Themen. Neue Themen landen in der vorhandenen Personennotiz bzw. legen
+ * sie an. Alles bleibt im Modal.
+ */
+export class TalkModal extends Modal {
+	private person = "";
+	private tasks: GtdTask[] = [];
+	private detailEl!: HTMLElement;
+	private peopleEl!: HTMLElement;
+	private personInput!: HTMLInputElement;
+
+	constructor(
+		app: App,
+		private plugin: GtdBoardPlugin,
+		presetPerson?: string,
+		private onOpenTask?: (task: GtdTask) => void
+	) {
+		super(app);
+		this.person = presetPerson?.trim() ?? "";
+	}
+
+	async onOpen(): Promise<void> {
+		this.modalEl.addClass("gtd-quick-modal", "gtd-talk-modal");
+		this.setTitle(t("quick.talk.title"));
+		const { contentEl } = this;
+
+		if (!this.plugin.settings.agendaEnabled) {
+			contentEl.createDiv({ cls: "gtd-quick-empty", text: t("quick.talk.disabled") });
+			return;
+		}
+
+		this.personInput = contentEl.createEl("input", {
+			cls: "gtd-quick-input",
+			attr: { type: "text", placeholder: t("quick.talk.personPlaceholder") },
+		});
+		this.personInput.value = this.person;
+		this.peopleEl = contentEl.createDiv({ cls: "gtd-quick-people" });
+		this.detailEl = contentEl.createDiv({ cls: "gtd-talk-detail" });
+
+		this.personInput.addEventListener("input", () => this.renderPeople());
+		this.personInput.addEventListener("keydown", (evt) => {
+			if (evt.key !== "Enter" || evt.isComposing) return;
+			evt.preventDefault();
+			const name = this.personInput.value.trim();
+			if (!name) return;
+			// Bekannte Person in ihrer gespeicherten Schreibweise uebernehmen.
+			const known = this.people().find((p) => p.name.toLowerCase() === name.toLowerCase());
+			this.selectPerson(known?.name ?? name);
+		});
+
+		await this.reloadTasks();
+		this.renderPeople();
+		if (this.person) this.renderDetail(true);
+		else window.setTimeout(() => this.personInput.focus(), 0);
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+
+	private people() {
+		return collectTalkPeople(this.tasks, AGENDA_LANE_ID);
+	}
+
+	private async reloadTasks(): Promise<void> {
+		this.tasks = await this.plugin.store.getAllTasks();
+	}
+
+	private selectPerson(name: string): void {
+		this.person = name;
+		this.personInput.value = name;
+		this.renderPeople();
+		this.renderDetail(true);
+	}
+
+	private renderPeople(): void {
+		this.peopleEl.empty();
+		const q = this.personInput.value.trim().toLowerCase();
+		const people = this.people();
+		const matches = people.filter((p) => !q || p.name.toLowerCase().includes(q));
+		for (const person of matches.slice(0, 10)) {
+			const chip = this.peopleEl.createEl("button", { cls: "gtd-quick-chip" });
+			chip.toggleClass("is-active", person.name.toLowerCase() === this.person.toLowerCase());
+			chip.createSpan({ text: person.name });
+			if (person.openTopics > 0) chip.createSpan({ cls: "gtd-quick-chip-count", text: String(person.openTopics) });
+			chip.addEventListener("click", () => this.selectPerson(person.name));
+		}
+		const typed = this.personInput.value.trim();
+		if (typed && !people.some((p) => p.name.toLowerCase() === typed.toLowerCase())) {
+			const chip = this.peopleEl.createEl("button", { cls: "gtd-quick-chip gtd-quick-chip-new" });
+			chip.setText(t("quick.talk.newPerson", { name: typed }));
+			chip.toggleClass("is-active", typed.toLowerCase() === this.person.toLowerCase());
+			chip.addEventListener("click", () => this.selectPerson(typed));
+		}
+	}
+
+	private renderDetail(focusInput: boolean): void {
+		this.detailEl.empty();
+		if (!this.person) return;
+		renderPersonDetail(this.detailEl, {
+			app: this.app,
+			plugin: this.plugin,
+			person: this.person,
+			tasks: this.tasks,
+			focusInput,
+			onOpenTask: this.onOpenTask,
+			reload: async () => {
+				await this.reloadTasks();
+				await this.plugin.refreshBoardViews();
+				this.renderPeople();
+				this.renderDetail(true);
+			},
+		});
+	}
+}
+
+/** Oeffnet "Besprechen mit", optional gleich fuer eine Person. */
+export function openTalkModal(
+	app: App,
+	plugin: GtdBoardPlugin,
+	presetPerson?: string,
+	onOpenTask?: (task: GtdTask) => void
+): void {
+	new TalkModal(app, plugin, presetPerson, onOpenTask).open();
 }

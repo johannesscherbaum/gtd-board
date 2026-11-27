@@ -55,8 +55,9 @@ Repo: github.com/johannesscherbaum/gtd-board. Antworte mir auf Deutsch.
 - Heute-Fokus: Smart-Liste "Heute" = heute faellig oder ueberfaellig oder manuell markiert.
   Die Markierung speichert ein DATUM (Frontmatter `today: YYYY-MM-DD`, inline Marker),
   damit sie am naechsten Tag verfaellt.
-- Seitenleiste mit Zaehlern (Listen, Personen aus `delegatedTo`, Projekte, Herkunft) und
-  Detailpanel statt Modal; Logik des Modals in eine gemeinsame Komponente auslagern.
+- Seitenleiste mit Zaehlern (Listen, Personen aus `delegatedTo`, Projekte, Herkunft).
+  Anlegen, Bearbeiten und Detailansicht immer ueber Modals ueber dem Board (seit #7, das
+  fruehere Detailpanel entfaellt); Aufgaben-Formular als gemeinsame Komponente (TaskForm).
 - Unteraufgaben (Checklisten in der Beschreibung) behalten ihr eigenes Datum.
 - Herkunft (Planner/Meetings) nur anzeigen: optionale Felder `source`, `sourceLabel`,
   `sourceUrl`, `plannerId`. Das Plugin liest sie, erhaelt sie und schreibt nie nach Planner.

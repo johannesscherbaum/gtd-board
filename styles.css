@@ -1495,40 +1495,10 @@
 	margin-right: auto;
 }
 
-.gtd-quick-btn.is-active {
-	background-color: var(--interactive-accent);
-	color: var(--text-on-accent);
-}
-
-.gtd-quick-panel {
-	position: absolute;
-	left: var(--gtd-quick-left, 8px);
-	top: var(--gtd-quick-top, 40px);
-	z-index: var(--layer-popover);
-	width: 380px;
-	max-width: calc(100% - 16px);
-	max-height: 70vh;
-	overflow-y: auto;
-	padding: 12px 14px;
+.gtd-quick-modal .modal-content {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
-	background-color: var(--background-primary);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: var(--radius-m);
-	box-shadow: var(--shadow-l);
-}
-
-.is-mobile .gtd-quick-panel {
-	left: 8px;
-	right: 8px;
-	width: auto;
-}
-
-.gtd-quick-title {
-	font-weight: var(--font-semibold);
-	font-size: var(--font-ui-medium);
-	margin-bottom: 4px;
 }
 
 .gtd-quick-section {
@@ -1746,9 +1716,30 @@
 	width: 100%;
 }
 
-.gtd-board.gtd-board-person-mode {
-	overflow-y: auto;
-	justify-content: center;
+.gtd-person-delegated {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+}
+
+.gtd-person-delegated.is-clickable {
+	cursor: var(--cursor);
+}
+
+.gtd-person-delegated.is-clickable:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.gtd-talk-detail {
+	margin-top: 8px;
+}
+
+.gtd-talk-modal .gtd-person-view {
+	max-width: none;
+	padding: 0;
 }
 
 .gtd-agenda-person-header[role="button"] {

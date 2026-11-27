@@ -129,13 +129,12 @@ A customizable GTD-based Kanban board for Obsidian.
   template has the sections Agenda, Notes and Tasks. Front matter lists such as Meetings Plus' `open_tasks` /
   `open_questions` are never read as tasks (no front matter line is).
 - **Quick buttons**: at the left of the toolbar, "+ Task", "+ Note" and
-  "+ Discuss" open a small panel below the button, so the board can be your
+  "+ Discuss" open a dialog on top of the board, so the board can be your
   central screen. "+ Task" takes the quick-capture syntax plus due chips and
   a target list (Enter creates, the field stays open for the next task).
   "+ Note" lists the events of a day from your calendar (arrows or a date
   picker to change the day) or creates a note without event; notes open in
-  a new tab. "+ Discuss" notes a topic for a person (pick a known person,
-  with their number of open topics, or type a new name) as an agenda item.
+  a new tab. "+ Discuss" opens the person dialog described below.
 - **Agendas (topics to discuss with people)**: each person has a note in the
   agendas folder (e.g. `GTD/Agendas/Günther.md`, person from `person:` or the
   file name); every top-level checkbox there is a topic. In any note in the
@@ -143,11 +142,13 @@ A customizable GTD-based Kanban board for Obsidian.
   Checking a topic marks it as discussed with `✅ YYYY-MM-DD` and keeps it as
   history; indented lines below a topic are notes. Older agenda files with
   `lane: __agenda__` (one file per topic) keep working. The sidebar group
-  "Conversations" lists people with open topics; clicking one opens the person
-  view: new topic field, open topics with notes and actions (add note, turn
-  into task, delegate to the person, open in note), tasks delegated to the
-  person and the discussed topics. Command "Capture agenda item" opens the
-  same input as "+ Discuss". New meeting notes list the open topics of the
+  "Conversations" lists people with open topics. "+ Discuss", the command
+  "Capture agenda item", a person in the sidebar or a name in the agendas lane
+  open the person dialog: pick a known person (with their number of open
+  topics) or type a new name; below appear the new-topic field, open topics
+  with notes and actions (add note, turn into task, delegate to the person),
+  tasks delegated to the person and the discussed topics. New topics go into
+  the existing person note or create it; everything stays in the dialog. New meeting notes list the open topics of the
   attendees (built-in template, or `{{agenda}}` in your own template).
 - **Origin (Planner, meetings)**: file tasks may carry the optional front
   matter fields `source` (e.g. `planner`, `meeting`), `sourceLabel`,

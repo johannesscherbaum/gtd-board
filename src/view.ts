@@ -30,11 +30,11 @@ function intlLocale(): string {
 	return getLocale() === "de" ? "de-DE" : "en-US";
 }
 import { ProcessModal, TaskModal, TaskModalOptions, confirmDialog } from "./modals";
-import { QuickContext, openTalkModal, renderNotePanel, renderTalkPanel, renderTaskPanel } from "./quick-buttons";
+import { QuickModal, openTalkModal, renderNotePanel, renderTaskPanel } from "./quick-buttons";
 
 export const GTD_BOARD_VIEW_TYPE = "gtd-board-view";
 
-type ViewMode = "board" | "today" | "agenda" | "week" | "projects" | "contexts" | "person" | "lane";
+type ViewMode = "board" | "today" | "agenda" | "week" | "projects" | "contexts" | "lane";
 
 function sortLabel(mode: SortMode): string {
 	switch (mode) {
@@ -72,12 +72,6 @@ export class GtdBoardView extends ItemView {
 	private sidebarLaneId = "";
 	/** Herkunfts-Quelle (origin.label) als zusaetzlicher Filter zu originFilter, leer = alle. */
 	private originLabelFilter = "";
-	/** Person der Personenansicht (viewMode "person", aus der Seitenleiste "Gespraeche"). */
-	private talkPerson = "";
-	/** Offenes Ausklapp-Panel eines Schnellknopfs (+ Aufgabe/Notiz/Besprechen) und sein Knopf. */
-	private quickPanelEl: HTMLElement | undefined;
-	private quickAnchorEl: HTMLElement | undefined;
-	private quickListenersRegistered = false;
 	/** Kanban (Lanes nebeneinander), Agenda (flache Liste) oder Woche (Kalender-Raster). */
 	private viewMode: ViewMode = "board";
 	/** Montag der aktuell angezeigten Woche (nur fuer die Wochenansicht relevant). */
@@ -125,7 +119,6 @@ export class GtdBoardView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
-		this.closeQuickPanel();
 		this.contentEl.empty();
 	}
 
@@ -400,86 +393,33 @@ export class GtdBoardView extends ItemView {
 		if (prev === "projects" && mode !== "projects") {
 			this.detailProject = undefined;
 		}
-		// Personen- und Lane-Ansicht haben keinen Eintrag in der Auswahl und werden nicht gemerkt.
-		const transient = mode === "person" || mode === "lane";
+		// Die Lane-Ansicht hat keinen Eintrag in der Auswahl und wird nicht gemerkt.
+		const transient = mode === "lane";
 		this.viewModeSelectEl.value = transient ? "" : mode;
 		this.sortSelectEl.toggle(mode === "board" || mode === "projects" || mode === "contexts" || mode === "lane");
 		if (!transient) void this.plugin.saveUiState({ lastViewMode: mode });
 		this.renderBoard();
 	}
 
-	/**
-	 * Schnellknoepfe links in der Toolbar. Jeder oeffnet ein Ausklapp-Panel darunter; ein zweiter
-	 * Klick, Esc oder ein Klick ausserhalb schliesst es. Auf Mobile nur Icons.
-	 */
+	/** Schnellknoepfe links in der Toolbar; jeder oeffnet ein Modal ueber dem Board. Auf Mobile nur Icons. */
 	private renderQuickButtons(toolbar: HTMLElement): void {
-		this.closeQuickPanel();
 		const group = toolbar.createDiv({ cls: "gtd-toolbar-group gtd-quick-buttons" });
-		const buttons: { icon: string; label: string; render: (el: HTMLElement, ctx: QuickContext) => void }[] = [
-			{ icon: "plus", label: t("quick.taskButton"), render: renderTaskPanel },
-			{ icon: "file-plus", label: t("quick.noteButton"), render: renderNotePanel },
-			{ icon: "messages-square", label: t("quick.talkButton"), render: renderTalkPanel },
+		const buttons: { icon: string; label: string; open: () => void }[] = [
+			{ icon: "plus", label: t("quick.taskButton"), open: () => new QuickModal(this.app, this.plugin, renderTaskPanel).open() },
+			{ icon: "file-plus", label: t("quick.noteButton"), open: () => new QuickModal(this.app, this.plugin, renderNotePanel).open() },
+			{ icon: "messages-square", label: t("quick.talkButton"), open: () => this.openTalk() },
 		];
-		for (const { icon, label, render } of buttons) {
+		for (const { icon, label, open } of buttons) {
 			const btn = this.createIconButton(group, icon, Platform.isMobile ? "" : label, "gtd-quick-btn");
 			btn.setAttribute("aria-label", label);
 			btn.setAttribute("title", label);
-			btn.addEventListener("click", (evt) => {
-				evt.stopPropagation();
-				this.toggleQuickPanel(btn, render);
-			});
+			btn.addEventListener("click", open);
 		}
-
-		if (this.quickListenersRegistered) return;
-		this.quickListenersRegistered = true;
-		// composedPath statt contains: Klicks auf Elemente, die das Panel waehrenddessen neu
-		// zeichnet (z. B. Personen-Chips), gelten sonst faelschlich als "ausserhalb".
-		this.registerDomEvent(document, "click", (evt) => {
-			const panel = this.quickPanelEl;
-			if (!panel) return;
-			const path = evt.composedPath();
-			if (path.includes(panel) || (this.quickAnchorEl && path.includes(this.quickAnchorEl))) return;
-			this.closeQuickPanel();
-		});
-		this.registerDomEvent(document, "keydown", (evt) => {
-			if (evt.key === "Escape" && this.quickPanelEl) {
-				evt.preventDefault();
-				this.closeQuickPanel();
-			}
-		});
 	}
 
-	private toggleQuickPanel(anchor: HTMLElement, render: (el: HTMLElement, ctx: QuickContext) => void): void {
-		const wasOpenHere = this.quickAnchorEl === anchor;
-		this.closeQuickPanel();
-		if (wasOpenHere) return;
-
-		const container = this.contentEl;
-		const panel = container.createDiv({ cls: "gtd-quick-panel" });
-		const containerRect = container.getBoundingClientRect();
-		const anchorRect = anchor.getBoundingClientRect();
-		const panelWidth = 380;
-		const left = Math.max(4, Math.min(anchorRect.left - containerRect.left, containerRect.width - panelWidth - 8));
-		panel.setCssProps({
-			"--gtd-quick-left": `${left}px`,
-			"--gtd-quick-top": `${anchorRect.bottom - containerRect.top + container.scrollTop + 4}px`,
-		});
-		anchor.addClass("is-active");
-		this.quickPanelEl = panel;
-		this.quickAnchorEl = anchor;
-		render(panel, {
-			app: this.app,
-			plugin: this.plugin,
-			tasks: () => this.tasks,
-			close: () => this.closeQuickPanel(),
-		});
-	}
-
-	private closeQuickPanel(): void {
-		this.quickPanelEl?.remove();
-		this.quickAnchorEl?.removeClass("is-active");
-		this.quickPanelEl = undefined;
-		this.quickAnchorEl = undefined;
+	/** "Besprechen mit" als Modal, optional gleich fuer eine Person; delegierte Aufgaben oeffnen den Aufgaben-Dialog. */
+	private openTalk(person?: string): void {
+		openTalkModal(this.app, this.plugin, person, (task) => this.openEditModal(task));
 	}
 
 	/** Blendet die Seitenleiste ein/aus; auf dem Desktop wird der Zustand gespeichert. */
@@ -553,10 +493,8 @@ export class GtdBoardView extends ItemView {
 		if (talkPeople.length > 0) {
 			const group = this.createSidebarGroup(t("view.sidebar.talks"));
 			for (const person of talkPeople) {
-				const active = this.viewMode === "person" && this.talkPerson.toLowerCase() === person.name.toLowerCase();
-				this.addSidebarItem(group, "messages-square", person.name, person.openTopics, active, () => {
-					this.talkPerson = person.name;
-					this.setViewMode("person");
+				this.addSidebarItem(group, "messages-square", person.name, person.openTopics, false, () => {
+					this.openTalk(person.name);
 					afterClick();
 				});
 			}
@@ -668,15 +606,11 @@ export class GtdBoardView extends ItemView {
 		this.boardEl.removeClass("gtd-board-projects-mode");
 		this.boardEl.removeClass("gtd-board-contexts-mode");
 		this.boardEl.removeClass("gtd-board-today-mode");
-		this.boardEl.removeClass("gtd-board-person-mode");
 		this.boardEl.removeClass("gtd-board-lane-mode");
 		const sidebarLane = this.plugin.settings.lanes.find((l) => l.id === this.sidebarLaneId);
 		if (this.viewMode === "lane" && sidebarLane) {
 			this.boardEl.addClass("gtd-board-lane-mode");
 			this.boardEl.appendChild(this.renderLaneList(sidebarLane));
-		} else if (this.viewMode === "person" && this.talkPerson) {
-			this.boardEl.addClass("gtd-board-person-mode");
-			this.boardEl.appendChild(this.renderPersonView(this.talkPerson));
 		} else if (this.viewMode === "today") {
 			this.boardEl.addClass("gtd-board-today-mode");
 			this.boardEl.appendChild(this.renderToday());
@@ -732,137 +666,6 @@ export class GtdBoardView extends ItemView {
 		const sorted = lane.isPlanned ? this.sortByDueAscending(visible) : this.sortTasks(visible);
 		for (const task of sorted) container.appendChild(this.renderCard(task, {}));
 		return container;
-	}
-
-	/**
-	 * Personenansicht "Gespraeche": alles fuer ein Gespraech mit einer Person auf einen Blick -
-	 * Eingabefeld fuer neue Themen, offene Themen mit Anmerkungen und Aktionen, besprochene
-	 * Themen als Verlauf und die an die Person delegierten Aufgaben.
-	 */
-	private renderPersonView(person: string): HTMLElement {
-		const container = createDiv({ cls: "gtd-person-view" });
-		const key = person.trim().toLowerCase();
-		const isPerson = (name: string | undefined) => (name ?? "").trim().toLowerCase() === key;
-		const topics = this.tasks.filter((t) => t.laneId === AGENDA_LANE_ID && isPerson(t.person));
-		const open = topics.filter((t) => !t.done);
-		const done = topics
-			.filter((t) => t.done)
-			.sort((a, b) => (b.doneDate ?? "").localeCompare(a.doneDate ?? ""));
-		const delegated = this.tasks.filter((t) => !t.done && t.laneId !== AGENDA_LANE_ID && isPerson(t.delegatedTo));
-
-		const header = container.createDiv({ cls: "gtd-person-header" });
-		const titleEl = header.createDiv({ cls: "gtd-person-title" });
-		setIcon(titleEl.createSpan({ cls: "gtd-person-title-icon" }), "user");
-		titleEl.createSpan({ text: person });
-		const note = this.plugin.store.findPersonNote(person);
-		if (note) {
-			const openNote = header.createEl("button", { text: t("view.person.openNote") });
-			openNote.addEventListener("click", () => void this.app.workspace.getLeaf("tab").openFile(note));
-		}
-
-		const input = container.createEl("input", {
-			cls: "gtd-person-input",
-			attr: { type: "text", placeholder: t("view.person.newTopic", { name: person }) },
-		});
-		input.addEventListener("keydown", (evt) => {
-			if (evt.key !== "Enter" || evt.isComposing) return;
-			evt.preventDefault();
-			const topic = input.value.trim();
-			if (!topic) return;
-			void (async () => {
-				await this.plugin.store.addAgendaTopic(person, topic);
-				await this.refresh();
-				this.boardEl.querySelector<HTMLInputElement>(".gtd-person-input")?.focus();
-			})();
-		});
-
-		const openSection = container.createDiv({ cls: "gtd-person-section" });
-		openSection.createDiv({ cls: "gtd-person-section-title", text: t("view.person.openTopics", { count: open.length }) });
-		if (open.length === 0) {
-			openSection.createDiv({ cls: "gtd-person-empty", text: t("view.person.noOpenTopics") });
-		}
-		for (const topic of open) this.renderPersonTopic(openSection, topic);
-
-		if (delegated.length > 0) {
-			const section = container.createDiv({ cls: "gtd-person-section" });
-			section.createDiv({ cls: "gtd-person-section-title", text: t("view.person.delegated", { name: person }) });
-			for (const task of this.sortByDueAscending(delegated)) section.appendChild(this.renderCard(task, {}));
-		}
-
-		if (done.length > 0) {
-			const details = container.createEl("details", { cls: "gtd-person-section gtd-person-done" });
-			details.createEl("summary", { cls: "gtd-person-section-title", text: t("view.person.discussed", { count: done.length }) });
-			for (const topic of done) this.renderPersonTopic(details, topic);
-		}
-		return container;
-	}
-
-	/** Ein Thema der Personenansicht: Haken, Titel, Anmerkungen und Aktionen. */
-	private renderPersonTopic(parent: HTMLElement, topic: GtdTask): void {
-		const row = parent.createDiv({ cls: "gtd-person-topic" });
-		if (topic.done) row.addClass("is-done");
-		const main = row.createDiv({ cls: "gtd-person-topic-main" });
-		const checkbox = main.createEl("input", { cls: "task-list-item-checkbox", attr: { type: "checkbox" } });
-		checkbox.checked = topic.done;
-		checkbox.setAttribute("aria-label", topic.done ? t("view.person.reopen") : t("view.person.markDiscussed"));
-		checkbox.addEventListener("change", () => void this.toggleTaskDone(topic));
-		main.createSpan({ cls: "gtd-person-topic-title", text: topic.title });
-		if (topic.doneDate) main.createSpan({ cls: "gtd-person-topic-date", text: topic.doneDate });
-
-		const notes = topic.description
-			.split("\n")
-			.map((l) => l.trim())
-			.filter((l) => l.length > 0);
-		if (notes.length > 0) {
-			const list = row.createEl("ul", { cls: "gtd-person-topic-notes" });
-			for (const n of notes) list.createEl("li", { text: n });
-		}
-
-		const actions = row.createDiv({ cls: "gtd-person-topic-actions" });
-		const action = (icon: string, label: string, run: () => void) => {
-			const btn = actions.createEl("button", { cls: "clickable-icon", attr: { "aria-label": label, title: label } });
-			setIcon(btn, icon);
-			btn.addEventListener("click", run);
-		};
-		action("message-square-plus", t("view.person.addNote"), () => {
-			if (row.querySelector(".gtd-person-note-input")) return;
-			const noteInput = row.createEl("input", {
-				cls: "gtd-person-note-input",
-				attr: { type: "text", placeholder: t("view.person.notePlaceholder") },
-			});
-			noteInput.focus();
-			noteInput.addEventListener("keydown", (evt) => {
-				if (evt.key === "Escape") {
-					evt.stopPropagation();
-					noteInput.remove();
-					return;
-				}
-				if (evt.key !== "Enter" || evt.isComposing) return;
-				evt.preventDefault();
-				const text = noteInput.value.trim();
-				if (!text) return;
-				void (async () => {
-					if (topic.source === "inline") {
-						await this.plugin.store.addAgendaNote(topic, text);
-					} else {
-						const body = topic.description.trim();
-						await this.plugin.store.patchFileTaskBody(topic, `${body}${body ? "\n" : ""}- ${text}`);
-					}
-					await this.refresh();
-				})();
-			});
-		});
-		if (!topic.done) {
-			action("square-check", t("view.person.toTask"), () => void this.convertTopic(topic, false));
-			action("user-check", t("view.person.delegate", { name: topic.person ?? "" }), () => void this.convertTopic(topic, true));
-		}
-		action("file-text", t("view.person.open"), () => this.openTaskFile(topic));
-	}
-
-	private async convertTopic(topic: GtdTask, delegate: boolean): Promise<void> {
-		const file = await this.plugin.store.convertAgendaToTask(topic, delegate);
-		new Notice(t(delegate ? "view.person.delegatedNotice" : "view.person.convertedNotice", { title: file.basename }));
-		await this.refresh();
 	}
 
 	/**
@@ -1482,10 +1285,7 @@ export class GtdBoardView extends ItemView {
 						text: `👤 ${person}`,
 						attr: { role: "button", tabindex: "0", title: t("view.person.openView") },
 					});
-					personHeader.addEventListener("click", () => {
-						this.talkPerson = person;
-						this.setViewMode("person");
-					});
+					personHeader.addEventListener("click", () => this.openTalk(person));
 					for (const item of byPerson.get(person)!) {
 						group.appendChild(this.renderCard(item, { showPersonBadge: false }));
 					}
@@ -2234,15 +2034,16 @@ export class GtdBoardView extends ItemView {
 	}
 
 	private openCreateAgendaModal(): void {
-		void openTalkModal(this.app, this.plugin);
+		this.openTalk();
 	}
 
 	private openEditModal(task: GtdTask): void {
 		const isAgendaItem = task.laneId === AGENDA_LANE_ID;
-		// Agendapunkte in Personennotizen bzw. mit #gtd/agenda sind Zeilen einer Notiz: dort
-		// bearbeiten statt im Formular (das wuerde sie in eine Aufgaben-Datei umwandeln).
+		// Agendapunkte in Personennotizen bzw. mit #gtd/agenda sind Zeilen einer Notiz: sie werden
+		// im Modal "Besprechen mit" der Person gezeigt und bearbeitet (das Aufgaben-Formular wuerde
+		// sie in eine Aufgaben-Datei umwandeln).
 		if (isAgendaItem && task.source === "inline") {
-			this.openTaskFile(task);
+			this.openTalk(task.person);
 			return;
 		}
 		this.openTaskEditor({
