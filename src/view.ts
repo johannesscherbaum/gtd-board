@@ -80,6 +80,8 @@ export class GtdBoardView extends ItemView {
 	private selectionMode = false;
 	private selectedTaskIds = new Set<string>();
 	private expandedSubtasks = new Set<string>();
+	/** Aufgeklappte Personenkarten der Agendas-Lane (klein geschriebener Name); standardmaessig zu. */
+	private expandedAgendaPeople = new Set<string>();
 	private boardEl!: HTMLElement;
 	private searchInputEl!: HTMLInputElement;
 	private contextSelectEl!: HTMLSelectElement;
@@ -1295,19 +1297,53 @@ export class GtdBoardView extends ItemView {
 	}
 
 	/**
-	 * Karte einer Person in der Agendas-Lane: Name mit Zahl der offenen Themen, darunter die
-	 * Themen als abhakbare Liste. Klick auf Name oder Thema oeffnet "Besprechen mit".
+	 * Karte einer Person in der Agendas-Lane: eingeklappt nur Name und Zahl der offenen Themen,
+	 * aufgeklappt zusaetzlich die Themen als abhakbare Liste. Klick auf den Kopf klappt auf und
+	 * zu; das Sprechblasen-Symbol bzw. ein Thema oeffnet "Besprechen mit".
 	 */
 	private renderAgendaPersonCard(person: string, items: GtdTask[]): HTMLElement {
+		const key = person.toLowerCase();
+		const expanded = this.expandedAgendaPeople.has(key);
 		const card = createDiv({ cls: "gtd-card gtd-agenda-person-card" });
-		card.setAttribute("title", t("view.person.openView"));
-		card.addEventListener("click", () => this.openTalk(person));
+		if (expanded) card.addClass("is-expanded");
 
-		const header = card.createDiv({ cls: "gtd-agenda-person-card-header" });
-		const icon = header.createSpan({ cls: "gtd-agenda-person-card-icon" });
-		setIcon(icon, "user");
+		const header = card.createDiv({
+			cls: "gtd-agenda-person-card-header",
+			attr: {
+				role: "button",
+				tabindex: "0",
+				"aria-expanded": String(expanded),
+				title: expanded ? t("view.lane.collapse") : t("view.lane.expand"),
+			},
+		});
+		const chevron = header.createSpan({ cls: "gtd-agenda-person-card-icon" });
+		setIcon(chevron, expanded ? "chevron-down" : "chevron-right");
 		header.createSpan({ cls: "gtd-agenda-person-card-name", text: person });
 		header.createSpan({ cls: "gtd-lane-count", text: String(items.length) });
+		const talkBtn = header.createEl("button", {
+			cls: "clickable-icon gtd-agenda-person-card-talk",
+			attr: { "aria-label": t("view.person.openView"), title: t("view.person.openView") },
+		});
+		setIcon(talkBtn, "messages-square");
+		talkBtn.addEventListener("click", (evt) => {
+			evt.stopPropagation();
+			this.openTalk(person);
+		});
+		const toggle = () => {
+			if (this.expandedAgendaPeople.has(key)) this.expandedAgendaPeople.delete(key);
+			else this.expandedAgendaPeople.add(key);
+			this.renderBoard();
+		};
+		header.addEventListener("click", toggle);
+		header.addEventListener("keydown", (evt) => {
+			if (evt.target !== header) return;
+			if (evt.key === "Enter" || evt.key === " ") {
+				evt.preventDefault();
+				toggle();
+			}
+		});
+
+		if (!expanded) return card;
 
 		const list = card.createDiv({ cls: "gtd-agenda-person-card-topics" });
 		for (const item of items) {
@@ -1318,7 +1354,8 @@ export class GtdBoardView extends ItemView {
 			});
 			checkbox.addEventListener("click", (evt) => evt.stopPropagation());
 			checkbox.addEventListener("change", () => void this.toggleTaskDone(item));
-			row.createSpan({ cls: "gtd-agenda-person-card-title", text: item.title });
+			const title = row.createSpan({ cls: "gtd-agenda-person-card-title", text: item.title });
+			title.addEventListener("click", () => this.openTalk(person));
 			const notes = item.description.split("\n").filter((l) => l.trim().length > 0).length;
 			if (notes > 0) {
 				const noteEl = row.createSpan({

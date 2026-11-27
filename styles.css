@@ -1804,7 +1804,9 @@
 
 /* Agendas-Lane: eine Karte je Person mit ihren offenen Themen. */
 .gtd-agenda-person-card {
-	cursor: var(--cursor);
+	cursor: default;
+	padding-top: 4px;
+	padding-bottom: 4px;
 }
 
 .gtd-agenda-person-card-header {
@@ -1812,7 +1814,19 @@
 	align-items: center;
 	gap: 6px;
 	font-weight: var(--font-semibold);
+	cursor: var(--cursor);
+}
+
+.gtd-agenda-person-card.is-expanded .gtd-agenda-person-card-header {
 	margin-bottom: 4px;
+}
+
+.gtd-agenda-person-card-talk {
+	padding: 2px;
+}
+
+.gtd-agenda-person-card-title {
+	cursor: var(--cursor);
 }
 
 .gtd-agenda-person-card-icon {
@@ -1846,7 +1860,7 @@
 	font-size: var(--font-ui-small);
 }
 
-.gtd-agenda-person-card-title {
+.gtd-agenda-person-card-topic .gtd-agenda-person-card-title {
 	flex: 1 1 auto;
 	min-width: 0;
 }
