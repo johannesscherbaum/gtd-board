@@ -4,6 +4,7 @@ import type GtdBoardPlugin from "./main";
 import { GtdTask, LaneConfig } from "./types";
 import { addDays, daysSince, formatLocalDate, parseQuickCapture, shouldPromoteFromInbox } from "./util";
 import { recurrenceLabel, t } from "./i18n";
+import { ICS_SECRET_ID, isIcsUrl } from "./meeting-ics";
 
 export type TaskModalResult = TaskFormResult;
 
@@ -650,4 +651,58 @@ export function confirmDialog(app: App, message: string): Promise<boolean> {
 		modal.onClose = () => finish(false);
 		modal.open();
 	});
+}
+
+/**
+ * Dialog zum Eingeben der ICS-URL. Die URL geht direkt in Obsidians Secret-Speicher (unter
+ * ICS_SECRET_ID), in den Einstellungen steht danach nur dieser Name. Das Eingabefeld ist
+ * maskiert, weil die URL meist einen geheimen Token enthaelt; sie wird nie geloggt.
+ */
+export class IcsUrlModal extends Modal {
+	constructor(app: App, private onSaved: (secretId: string) => Promise<void>) {
+		super(app);
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		this.setTitle(t("icsUrlModal.title"));
+		contentEl.createEl("p", { text: t("icsUrlModal.desc") });
+
+		let value = "";
+		const error = contentEl.createDiv({ cls: "mod-warning" });
+		const save = async () => {
+			if (!isIcsUrl(value)) {
+				error.setText(t("icsUrlModal.invalid"));
+				return;
+			}
+			this.app.secretStorage.setSecret(ICS_SECRET_ID, value.trim());
+			this.close();
+			await this.onSaved(ICS_SECRET_ID);
+			new Notice(t("icsUrlModal.saved"));
+		};
+
+		new Setting(contentEl).setName(t("icsUrlModal.field")).addText((text) => {
+			text.inputEl.type = "password";
+			text.inputEl.autocomplete = "off";
+			text.setPlaceholder("https://…/calendar.ics").onChange((v) => {
+				value = v;
+				error.setText("");
+			});
+			text.inputEl.addEventListener("keydown", (evt) => {
+				if (evt.key === "Enter") {
+					evt.preventDefault();
+					void save();
+				}
+			});
+			window.setTimeout(() => text.inputEl.focus(), 0);
+		});
+
+		new Setting(contentEl)
+			.addButton((btn) => btn.setButtonText(t("icsUrlModal.save")).setCta().onClick(() => void save()))
+			.addButton((btn) => btn.setButtonText(t("taskModal.cancel")).onClick(() => this.close()));
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
 }

@@ -1,4 +1,4 @@
-import { noteMatchesMeeting, parseIcsEvents, renderMeetingTemplate } from "../src/meeting-ics";
+import { isIcsUrl, noteMatchesMeeting, parseIcsEvents, renderMeetingTemplate } from "../src/meeting-ics";
 
 const VTIMEZONE_BERLIN = [
 	"BEGIN:VTIMEZONE",
@@ -182,5 +182,20 @@ describe("Meeting-Notizen im Board (Meetings Plus)", () => {
 		const tasks = await store.getAllTasks();
 		expect(tasks.map((t) => t.title)).toEqual(["Protokoll verteilen"]);
 		expect(tasks[0].line).toBe(10);
+	});
+});
+
+describe("isIcsUrl", () => {
+	it("akzeptiert http(s) und webcal", () => {
+		expect(isIcsUrl("https://outlook.office365.com/owa/calendar/x/calendar.ics")).toBe(true);
+		expect(isIcsUrl("  webcal://example.org/cal.ics ")).toBe(true);
+		expect(isIcsUrl("http://example.org/cal.ics")).toBe(true);
+	});
+
+	it("lehnt Leeres, andere Schemata und Leerzeichen ab", () => {
+		expect(isIcsUrl("")).toBe(false);
+		expect(isIcsUrl("file:///tmp/cal.ics")).toBe(false);
+		expect(isIcsUrl("example.org/cal.ics")).toBe(false);
+		expect(isIcsUrl("https://example.org/a b.ics")).toBe(false);
 	});
 });

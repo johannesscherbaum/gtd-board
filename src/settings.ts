@@ -2,6 +2,7 @@ import { App, PluginSettingTab, SecretComponent, Setting, SettingDefinitionItem 
 import type GtdBoardPlugin from "./main";
 import { LaneConfig } from "./types";
 import { t } from "./i18n";
+import { IcsUrlModal } from "./modals";
 
 let laneIdCounter = 0;
 function newLaneId(): string {
@@ -269,6 +270,17 @@ export class GtdBoardSettingTab extends PluginSettingTab {
 									settings.meetingIcsSecret = value;
 									this.plugin.meetings.clearCache();
 									await this.plugin.saveSettings();
+								})
+							);
+							// Ohne vorhandenes Secret bietet die Auswahl nichts an - daher URL direkt eingeben.
+							setting.addButton((btn) =>
+								btn.setButtonText(t("settings.meetingCalendar.enterUrl")).onClick(() => {
+									new IcsUrlModal(this.app, async (secretId) => {
+										settings.meetingIcsSecret = secretId;
+										this.plugin.meetings.clearCache();
+										await this.plugin.saveSettings();
+										this.update();
+									}).open();
 								})
 							);
 						},

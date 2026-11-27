@@ -110,6 +110,14 @@ export const de = {
 		ticklerSave: "Tickler setzen",
 		delete: "Loeschen",
 	},
+	icsUrlModal: {
+		title: "Kalender (ICS-URL)",
+		desc: "Die Adresse wird im Secret-Speicher von Obsidian abgelegt, nicht in den Plugin-Einstellungen und nicht im Vault.",
+		field: "ICS-URL",
+		invalid: "Bitte eine Adresse mit https://, http:// oder webcal:// eingeben.",
+		save: "Speichern",
+		saved: "Kalender-Adresse gespeichert.",
+	},
 	agendaModal: {
 		titleCreate: "Neuer Agendapunkt",
 		titleEdit: "Agendapunkt bearbeiten",
@@ -219,7 +227,8 @@ export const de = {
 			"Befehl \"Neue Meeting-Notiz\": einen Termin von heute aus dem Kalender waehlen (oder keinen) und eine Notiz aus der Vorlage erhalten, geoeffnet im normalen Editor. Vorhandene Notizen, auch die des Plugins Meetings Plus, werden wiedergefunden statt doppelt angelegt.",
 		meetingCalendar: {
 			name: "Kalender (ICS-URL)",
-			desc: "Liegt im Secret-Speicher von Obsidian, nie in den Plugin-Einstellungen oder im Vault. Ein Secret mit der ICS-Adresse des Kalenders waehlen oder anlegen (z. B. den Veroeffentlichungs-Link aus Outlook).",
+			desc: "Liegt im Secret-Speicher von Obsidian, nie in den Plugin-Einstellungen oder im Vault. Ueber \"ICS-URL eingeben\" die Adresse des Kalenders eintragen (z. B. den Veroeffentlichungs-Link aus Outlook) oder ein vorhandenes Secret waehlen.",
+			enterUrl: "ICS-URL eingeben",
 		},
 		meetingFolder: {
 			name: "Ordner fuer Meeting-Notizen",

@@ -153,3 +153,11 @@ export function renderMeetingTemplate(template: string, vars: Record<string, str
 		Object.prototype.hasOwnProperty.call(vars, name) ? vars[name] : match
 	);
 }
+
+/** ID, unter der das Plugin eine selbst eingegebene ICS-URL im Secret-Speicher ablegt. */
+export const ICS_SECRET_ID = "gtd-board-ics-url";
+
+/** Akzeptiert nur Kalender-Adressen, die das Plugin auch abrufen kann: http(s) und webcal. */
+export function isIcsUrl(value: string): boolean {
+	return /^(https?|webcal):\/\/\S+$/i.test(value.trim());
+}

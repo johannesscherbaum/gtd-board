@@ -110,6 +110,14 @@ export const en = {
 		ticklerSave: "Set tickler",
 		delete: "Delete",
 	},
+	icsUrlModal: {
+		title: "Calendar (ICS URL)",
+		desc: "The address is stored in Obsidian's secret storage, not in the plugin settings and not in the vault.",
+		field: "ICS URL",
+		invalid: "Please enter an address starting with https://, http:// or webcal://.",
+		save: "Save",
+		saved: "Calendar address saved.",
+	},
 	agendaModal: {
 		titleCreate: "New agenda item",
 		titleEdit: "Edit agenda item",
@@ -218,7 +226,8 @@ export const en = {
 			"Command \"New meeting note\": pick one of today's events from your calendar (or none) and get a note from the template, opened in the normal editor. Existing notes, including those of the Meetings Plus plugin, are found again instead of duplicated.",
 		meetingCalendar: {
 			name: "Calendar (ICS URL)",
-			desc: "Stored in Obsidian's secret storage, never in the plugin settings or the vault. Choose or create a secret holding the calendar's ICS address (e.g. the Outlook publish link).",
+			desc: "Stored in Obsidian's secret storage, never in the plugin settings or the vault. Use \"Enter ICS URL\" to add the calendar address (e.g. the Outlook publish link), or choose an existing secret.",
+			enterUrl: "Enter ICS URL",
 		},
 		meetingFolder: {
 			name: "Meeting notes folder",
