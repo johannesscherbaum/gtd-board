@@ -2,6 +2,8 @@
 	display: flex;
 	flex-direction: column;
 	height: 100%;
+	/* Bezugspunkt fuer das Ausklapp-Panel der Schnellknoepfe */
+	position: relative;
 }
 
 .gtd-board-toolbar {
@@ -1550,4 +1552,156 @@
 .gtd-meeting-suggestion-meta {
 	font-size: var(--font-ui-smaller);
 	color: var(--text-muted);
+}
+
+/* Schnellknoepfe (+ Aufgabe, + Notiz, + Besprechen) links in der Toolbar und ihr Ausklapp-Panel. */
+.gtd-quick-buttons {
+	margin-right: auto;
+}
+
+.gtd-quick-btn.is-active {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.gtd-quick-panel {
+	position: absolute;
+	left: var(--gtd-quick-left, 8px);
+	top: var(--gtd-quick-top, 40px);
+	z-index: var(--layer-popover);
+	width: 380px;
+	max-width: calc(100% - 16px);
+	max-height: 70vh;
+	overflow-y: auto;
+	padding: 12px 14px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	background-color: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	box-shadow: var(--shadow-l);
+}
+
+.is-mobile .gtd-quick-panel {
+	left: 8px;
+	right: 8px;
+	width: auto;
+}
+
+.gtd-quick-title {
+	font-weight: var(--font-semibold);
+	font-size: var(--font-ui-medium);
+	margin-bottom: 4px;
+}
+
+.gtd-quick-section {
+	margin-top: 6px;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.gtd-quick-input,
+.gtd-quick-select {
+	width: 100%;
+}
+
+.gtd-quick-hint,
+.gtd-quick-empty {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.gtd-quick-empty {
+	padding: 6px 2px;
+}
+
+.gtd-quick-chips,
+.gtd-quick-people {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.gtd-quick-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: var(--font-ui-small);
+	border-radius: var(--radius-l);
+}
+
+.gtd-quick-chip.is-active {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.gtd-quick-chip-count {
+	font-size: var(--font-ui-smaller);
+	opacity: 0.8;
+}
+
+.gtd-quick-actions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 6px;
+}
+
+.gtd-quick-daynav {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.gtd-quick-daylabel {
+	flex: 1 1 auto;
+	font-weight: var(--font-semibold);
+	background: none;
+	box-shadow: none;
+}
+
+.gtd-quick-date {
+	width: auto;
+	font-size: var(--font-ui-smaller);
+}
+
+.gtd-quick-events {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.gtd-quick-event {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+	height: auto;
+	padding: 8px 10px;
+	justify-content: flex-start;
+	text-align: left;
+}
+
+.gtd-quick-event-time {
+	flex: 0 0 auto;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.gtd-quick-event-title {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-weight: var(--font-semibold);
+}
+
+.gtd-quick-event-note {
+	flex: 0 0 auto;
+	color: var(--text-accent);
+	display: inline-flex;
 }

@@ -100,7 +100,7 @@ export class QuickCaptureModal extends Modal {
 				hint.setText(defaultHint);
 				return;
 			}
-			hint.setText(this.describeParsed(parsed, this.plugin.settings.lanes));
+			hint.setText(describeQuickCapture(parsed, this.plugin.settings.lanes));
 		};
 
 		input.addEventListener("input", () => {
@@ -116,22 +116,6 @@ export class QuickCaptureModal extends Modal {
 		window.setTimeout(() => input.focus(), 0);
 	}
 
-	/** Baut eine kurze Vorschauzeile, was aus der getippten Syntax erkannt wurde. */
-	private describeParsed(parsed: ReturnType<typeof parseQuickCapture>, lanes: LaneConfig[]): string {
-		if (!parsed) return "";
-		const parts: string[] = [`"${parsed.title}"`];
-		const lane = parsed.laneId ? lanes.find((l) => l.id === parsed.laneId) : undefined;
-		if (lane) parts.push(`→ ${lane.name}`);
-		if (parsed.due) parts.push(`📅 ${parsed.due}`);
-		if (parsed.contexts.length > 0) parts.push(`@${parsed.contexts.join(", @")}`);
-		if (parsed.project) parts.push(`+${parsed.project}`);
-		if (parsed.delegatedTo) parts.push(`👤 ${parsed.delegatedTo}`);
-		if (parsed.priority === "high") parts.push("🔺");
-		if (parsed.priority === "low") parts.push("🔽");
-		if (parsed.recurrence) parts.push(`🔁 ${recurrenceLabel(parsed.recurrence)}`);
-		return parts.join(" · ");
-	}
-
 	private async submit(): Promise<void> {
 		const title = await captureQuickTask(this.app, this.plugin, this.title, this.laneId);
 		if (title) new Notice(t("quickCapture.captured", { title }));
@@ -141,6 +125,22 @@ export class QuickCaptureModal extends Modal {
 	onClose(): void {
 		this.contentEl.empty();
 	}
+}
+
+/** Baut eine kurze Vorschauzeile, was aus der getippten Syntax erkannt wurde. */
+export function describeQuickCapture(parsed: ReturnType<typeof parseQuickCapture>, lanes: LaneConfig[]): string {
+	if (!parsed) return "";
+	const parts: string[] = [`"${parsed.title}"`];
+	const lane = parsed.laneId ? lanes.find((l) => l.id === parsed.laneId) : undefined;
+	if (lane) parts.push(`→ ${lane.name}`);
+	if (parsed.due) parts.push(`📅 ${parsed.due}`);
+	if (parsed.contexts.length > 0) parts.push(`@${parsed.contexts.join(", @")}`);
+	if (parsed.project) parts.push(`+${parsed.project}`);
+	if (parsed.delegatedTo) parts.push(`👤 ${parsed.delegatedTo}`);
+	if (parsed.priority === "high") parts.push("🔺");
+	if (parsed.priority === "low") parts.push("🔽");
+	if (parsed.recurrence) parts.push(`🔁 ${recurrenceLabel(parsed.recurrence)}`);
+	return parts.join(" · ");
 }
 
 /**

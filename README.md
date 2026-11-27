@@ -122,8 +122,17 @@ A customizable GTD-based Kanban board for Obsidian.
   (plus `meeting_recurrence_id` for series); notes of the Meetings Plus
   plugin are recognized via `meeting_dedup_key`. The calendar URL lives in
   Obsidian's secret storage only, it is never logged or written to the
-  vault. Front matter lists such as Meetings Plus' `open_tasks` /
+  vault ("Enter ICS URL" in the settings stores it there). The built-in
+  template has the sections Agenda, Notes and Tasks. Front matter lists such as Meetings Plus' `open_tasks` /
   `open_questions` are never read as tasks (no front matter line is).
+- **Quick buttons**: at the left of the toolbar, "+ Task", "+ Note" and
+  "+ Discuss" open a small panel below the button, so the board can be your
+  central screen. "+ Task" takes the quick-capture syntax plus due chips and
+  a target list (Enter creates, the field stays open for the next task).
+  "+ Note" lists the events of a day from your calendar (arrows or a date
+  picker to change the day) or creates a note without event; notes open in
+  a new tab. "+ Discuss" notes a topic for a person (pick a known person,
+  with their number of open topics, or type a new name) as an agenda item.
 - **Origin (Planner, meetings)**: file tasks may carry the optional front
   matter fields `source` (e.g. `planner`, `meeting`), `sourceLabel`,
   `sourceUrl` and `plannerId`. The card shows them as a small badge; with a

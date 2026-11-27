@@ -26,6 +26,7 @@ function intlLocale(): string {
 }
 import { ProcessModal, TaskModal, TaskModalOptions, confirmDialog } from "./modals";
 import { TaskDetailPanel } from "./detail-panel";
+import { QuickContext, renderNotePanel, renderTalkPanel, renderTaskPanel } from "./quick-buttons";
 
 export const GTD_BOARD_VIEW_TYPE = "gtd-board-view";
 
@@ -63,6 +64,10 @@ export class GtdBoardView extends ItemView {
 	private sidebarEl!: HTMLElement;
 	private sidebarToggleEl!: HTMLElement;
 	private viewModeSelectEl!: HTMLSelectElement;
+	/** Offenes Ausklapp-Panel eines Schnellknopfs (+ Aufgabe/Notiz/Besprechen) und sein Knopf. */
+	private quickPanelEl: HTMLElement | undefined;
+	private quickAnchorEl: HTMLElement | undefined;
+	private quickListenersRegistered = false;
 	/** Detailpanel rechts neben dem Board (Desktop); auf Mobile wird weiter der Dialog genutzt. */
 	private detailPanel!: TaskDetailPanel;
 	/** Kanban (Lanes nebeneinander), Agenda (flache Liste) oder Woche (Kalender-Raster). */
@@ -112,6 +117,7 @@ export class GtdBoardView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
+		this.closeQuickPanel();
 		this.detailPanel?.close();
 		this.contentEl.empty();
 	}
@@ -198,6 +204,8 @@ export class GtdBoardView extends ItemView {
 		this.sidebarToggleEl.setAttribute("title", t("view.sidebar.toggle"));
 		this.sidebarToggleEl.toggleClass("is-active", this.sidebarVisible);
 		this.sidebarToggleEl.addEventListener("click", () => this.setSidebarVisible(!this.sidebarVisible));
+
+		this.renderQuickButtons(toolbar);
 
 		const searchGroup = toolbar.createDiv({
 			cls: "gtd-toolbar-group gtd-toolbar-inline-icon gtd-toolbar-search-group",
@@ -377,6 +385,80 @@ export class GtdBoardView extends ItemView {
 	}
 
 	/** Blendet die Seitenleiste ein/aus; auf dem Desktop wird der Zustand gespeichert. */
+	/**
+	 * Schnellknoepfe links in der Toolbar. Jeder oeffnet ein Ausklapp-Panel darunter; ein zweiter
+	 * Klick, Esc oder ein Klick ausserhalb schliesst es. Auf Mobile nur Icons.
+	 */
+	private renderQuickButtons(toolbar: HTMLElement): void {
+		this.closeQuickPanel();
+		const group = toolbar.createDiv({ cls: "gtd-toolbar-group gtd-quick-buttons" });
+		const buttons: { icon: string; label: string; render: (el: HTMLElement, ctx: QuickContext) => void }[] = [
+			{ icon: "plus", label: t("quick.taskButton"), render: renderTaskPanel },
+			{ icon: "file-plus", label: t("quick.noteButton"), render: renderNotePanel },
+			{ icon: "messages-square", label: t("quick.talkButton"), render: renderTalkPanel },
+		];
+		for (const { icon, label, render } of buttons) {
+			const btn = this.createIconButton(group, icon, Platform.isMobile ? "" : label, "gtd-quick-btn");
+			btn.setAttribute("aria-label", label);
+			btn.setAttribute("title", label);
+			btn.addEventListener("click", (evt) => {
+				evt.stopPropagation();
+				this.toggleQuickPanel(btn, render);
+			});
+		}
+
+		if (this.quickListenersRegistered) return;
+		this.quickListenersRegistered = true;
+		// composedPath statt contains: Klicks auf Elemente, die das Panel waehrenddessen neu
+		// zeichnet (z. B. Personen-Chips), gelten sonst faelschlich als "ausserhalb".
+		this.registerDomEvent(document, "click", (evt) => {
+			const panel = this.quickPanelEl;
+			if (!panel) return;
+			const path = evt.composedPath();
+			if (path.includes(panel) || (this.quickAnchorEl && path.includes(this.quickAnchorEl))) return;
+			this.closeQuickPanel();
+		});
+		this.registerDomEvent(document, "keydown", (evt) => {
+			if (evt.key === "Escape" && this.quickPanelEl) {
+				evt.preventDefault();
+				this.closeQuickPanel();
+			}
+		});
+	}
+
+	private toggleQuickPanel(anchor: HTMLElement, render: (el: HTMLElement, ctx: QuickContext) => void): void {
+		const wasOpenHere = this.quickAnchorEl === anchor;
+		this.closeQuickPanel();
+		if (wasOpenHere) return;
+
+		const container = this.contentEl;
+		const panel = container.createDiv({ cls: "gtd-quick-panel" });
+		const containerRect = container.getBoundingClientRect();
+		const anchorRect = anchor.getBoundingClientRect();
+		const panelWidth = 380;
+		const left = Math.max(4, Math.min(anchorRect.left - containerRect.left, containerRect.width - panelWidth - 8));
+		panel.setCssProps({
+			"--gtd-quick-left": `${left}px`,
+			"--gtd-quick-top": `${anchorRect.bottom - containerRect.top + container.scrollTop + 4}px`,
+		});
+		anchor.addClass("is-active");
+		this.quickPanelEl = panel;
+		this.quickAnchorEl = anchor;
+		render(panel, {
+			app: this.app,
+			plugin: this.plugin,
+			tasks: () => this.tasks,
+			close: () => this.closeQuickPanel(),
+		});
+	}
+
+	private closeQuickPanel(): void {
+		this.quickPanelEl?.remove();
+		this.quickAnchorEl?.removeClass("is-active");
+		this.quickPanelEl = undefined;
+		this.quickAnchorEl = undefined;
+	}
+
 	private setSidebarVisible(visible: boolean): void {
 		this.sidebarVisible = visible;
 		this.sidebarToggleEl.toggleClass("is-active", visible);

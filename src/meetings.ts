@@ -76,13 +76,15 @@ export class MeetingService {
 
 	/**
 	 * Oeffnet die Notiz zu einem Termin bzw. legt sie aus der Vorlage an. Ohne Termin (event
-	 * undefined) entsteht eine freie Meeting-Notiz mit dem uebergebenen Titel.
+	 * undefined) entsteht eine freie Meeting-Notiz mit dem uebergebenen Titel. Mit inNewTab
+	 * (Aufruf aus dem Board) oeffnet sie in einem neuen Tab, damit das Board stehen bleibt.
 	 */
-	async openOrCreate(event: MeetingEvent | undefined, freeTitle?: string): Promise<void> {
+	async openOrCreate(event: MeetingEvent | undefined, freeTitle?: string, inNewTab = false): Promise<void> {
+		const leaf = () => this.app.workspace.getLeaf(inNewTab ? "tab" : false);
 		if (event) {
 			const existing = this.findNote(event);
 			if (existing) {
-				await this.app.workspace.getLeaf(false).openFile(existing);
+				await leaf().openFile(existing);
 				return;
 			}
 		}
@@ -112,7 +114,7 @@ export class MeetingService {
 				if (event.recurrenceId) fm.meeting_recurrence_id = event.recurrenceId;
 			}
 		});
-		await this.app.workspace.getLeaf(false).openFile(file);
+		await leaf().openFile(file);
 	}
 
 	private async buildContent(event: MeetingEvent | undefined, title: string, start: Date): Promise<string> {
