@@ -69,13 +69,30 @@ export function isSafeOriginUrl(url: string): boolean {
  */
 export function readTaskOrigin(frontmatter: Record<string, unknown>): TaskOrigin | undefined {
 	const source = frontmatterString(frontmatter.source);
-	const label = frontmatterString(frontmatter.sourceLabel);
+	let label = frontmatterString(frontmatter.sourceLabel);
 	const rawUrl = frontmatterString(frontmatter.sourceUrl);
 	const plannerId = frontmatterString(frontmatter.plannerId);
-	const kind = source ?? (plannerId ? "planner" : label || rawUrl ? "other" : undefined);
+	// `source` als Wikilink auf eine Notiz (z. B. "[[01 Meeting Notes/2026-11-17 Status Review]]")
+	// ist eine Meeting-Herkunft: Art "meeting", Name aus Alias bzw. Dateiname, Link auf die Notiz.
+	const link = source ? parseWikilink(source) : undefined;
+	let kind = link ? "meeting" : source?.toLowerCase();
+	if (link) label = label ?? link.alias ?? link.name;
+	kind = kind ?? (plannerId ? "planner" : label || rawUrl ? "other" : undefined);
 	if (!kind) return undefined;
 	const url = rawUrl && isSafeOriginUrl(rawUrl) ? rawUrl : undefined;
-	return { kind, label, url, plannerId };
+	const origin: TaskOrigin = { kind, label, url, plannerId };
+	if (link) origin.note = link.target;
+	return origin;
+}
+
+/** Zerlegt "[[Ziel|Alias]]" bzw. "[[Ordner/Notiz]]" in Ziel, Alias und Notizname (ohne Ordner, ohne .md). */
+export function parseWikilink(value: string): { target: string; alias?: string; name: string } | undefined {
+	const m = /^\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]$/.exec(value.trim());
+	if (!m) return undefined;
+	const target = m[1].trim();
+	const name = (target.split("/").pop() ?? target).replace(/\.md$/i, "");
+	const alias = m[2]?.trim() || undefined;
+	return { target, alias, name };
 }
 
 /** Baut den vollstaendigen Dateiinhalt (Frontmatter + Body) einer Aufgaben-Datei. */

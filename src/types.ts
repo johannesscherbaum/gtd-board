@@ -59,6 +59,8 @@ export interface TaskOrigin {
 	url?: string;
 	/** Planner-Aufgaben-ID aus `plannerId` (Schluessel des externen Laufs). */
 	plannerId?: string;
+	/** Link-Ziel einer Notiz, wenn `source` ein Wikilink ist (z. B. die Meeting-Notiz). */
+	note?: string;
 }
 
 /** Prioritaet einer Aufgabe. Ohne explizite Angabe gilt eine Aufgabe als "medium". */

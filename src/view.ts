@@ -1920,6 +1920,14 @@ export class GtdBoardView extends ItemView {
 				evt.stopPropagation();
 				window.open(url);
 			});
+		} else if (origin.note) {
+			const note = origin.note;
+			badge.addClass("gtd-card-tag-origin-link");
+			badge.setAttribute("title", t("view.card.originLinkTitle", { source: name }));
+			badge.addEventListener("click", (evt) => {
+				evt.stopPropagation();
+				void this.app.workspace.openLinkText(note, task.filePath, "tab");
+			});
 		} else {
 			badge.setAttribute("title", t("view.card.originTitle", { source: name }));
 		}

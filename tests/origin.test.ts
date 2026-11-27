@@ -29,6 +29,22 @@ describe("readTaskOrigin", () => {
 		expect(isSafeOriginUrl("file:///etc/passwd")).toBe(false);
 	});
 
+	it("macht aus einem Wikilink in source eine Meeting-Herkunft mit lesbarem Namen", () => {
+		expect(readTaskOrigin({ source: "[[01 Meeting Notes/2026-11-17 Status Review SAP R3]]" })).toEqual({
+			kind: "meeting",
+			label: "2026-11-17 Status Review SAP R3",
+			url: undefined,
+			plannerId: undefined,
+			note: "01 Meeting Notes/2026-11-17 Status Review SAP R3",
+		});
+		expect(readTaskOrigin({ source: "[[Notes/Jour fixe.md|Jour fixe]]" })?.label).toBe("Jour fixe");
+		expect(readTaskOrigin({ source: "[[Notes/X]]", sourceLabel: "Eigener Name" })?.label).toBe("Eigener Name");
+	});
+
+	it("schreibt die Herkunftsart klein", () => {
+		expect(readTaskOrigin({ source: "Planner" })?.kind).toBe("planner");
+	});
+
 	it("wandelt numerische plannerId in einen String", () => {
 		expect(readTaskOrigin({ plannerId: 42 })?.plannerId).toBe("42");
 	});
