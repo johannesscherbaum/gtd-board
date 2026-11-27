@@ -13,6 +13,7 @@ import {
 	dueUrgency,
 	fileTaskId,
 	formatLocalDate,
+	formatShortDue,
 	parseLocalDateTime,
 	priorityRank,
 	reorderTaskIds,
@@ -1670,11 +1671,16 @@ export class GtdBoardView extends ItemView {
 			});
 		}
 
+		// Eine Meta-Zeile fuer Faelligkeit und alle Badges, statt je einer eigenen Zeile.
+		const metaEl = card.createDiv({ cls: "gtd-card-meta gtd-card-tags" });
 		if (task.due) {
-			const dueEl = card.createDiv({ cls: "gtd-card-due" });
-			dueEl.setAttribute("title", task.source === "file" ? t("view.card.editDueTitle") : "");
+			const dueEl = metaEl.createSpan({ cls: "gtd-card-due" });
+			const fullDue = task.due.replace("T", " ");
+			dueEl.setAttribute("title", task.source === "file" ? `${fullDue} · ${t("view.card.editDueTitle")}` : fullDue);
 			if (task.source === "file") dueEl.addClass("gtd-card-due-editable");
-			dueEl.createSpan({ text: `📅 ${task.due}` });
+			const dueIcon = dueEl.createSpan({ cls: "gtd-card-due-icon" });
+			setIcon(dueIcon, "calendar");
+			dueEl.createSpan({ text: this.shortDue(task.due) });
 			if (!task.done) {
 				const urgency = dueUrgency(task.due);
 				if (urgency) dueEl.addClass(`gtd-card-due-${urgency}`);
@@ -1720,7 +1726,7 @@ export class GtdBoardView extends ItemView {
 			if (nextSubtaskDay && !task.done) {
 				const nextEl = headerRow.createSpan({
 					cls: "gtd-card-subtasks-next",
-					text: `📅 ${nextSubtaskDay}`,
+					text: this.shortDue(nextSubtaskDay),
 					attr: { title: t("view.card.subtaskNextDueTitle") },
 				});
 				const urgency = dueUrgency(nextSubtaskDay);
@@ -1744,7 +1750,7 @@ export class GtdBoardView extends ItemView {
 				row.createSpan({ cls: "gtd-card-subtask-text", text: item.text });
 				if (item.due) {
 					// Eigenes Datum der Unteraufgabe, mit derselben Dringlichkeitsfarbe wie die Karte.
-					const dueEl = row.createSpan({ cls: "gtd-card-subtask-due", text: `📅 ${item.due.replace("T", " ")}` });
+					const dueEl = row.createSpan({ cls: "gtd-card-subtask-due", text: this.shortDue(item.due) });
 					const urgency = item.done ? undefined : dueUrgency(item.due);
 					if (urgency) dueEl.addClass(`gtd-card-due-${urgency}`);
 				}
@@ -1826,7 +1832,7 @@ export class GtdBoardView extends ItemView {
 			isStaleSomeday ||
 			showPerson
 		) {
-			const tagsEl = card.createDiv({ cls: "gtd-card-tags" });
+			const tagsEl = metaEl;
 			if (isMarkedToday) {
 				tagsEl.createSpan({
 					cls: "gtd-card-tag gtd-card-tag-today",
@@ -1881,6 +1887,9 @@ export class GtdBoardView extends ItemView {
 			}
 		}
 
+		// Meta-Zeile ohne Faelligkeit und Badges entfaellt.
+		if (metaEl.childElementCount === 0) metaEl.remove();
+
 		card.addEventListener("click", () => {
 			if (this.selectionMode) {
 				const nextSelected = !this.selectedTaskIds.has(task.id);
@@ -1901,6 +1910,15 @@ export class GtdBoardView extends ItemView {
 	 * Herkunfts-Badge (Planner, Meeting, ...): zeigt sourceLabel bzw. die Art der Quelle. Mit
 	 * sicherem sourceUrl oeffnet ein Klick die Quelle, statt den Bearbeiten-Dialog.
 	 */
+	/** Kurze Faelligkeit fuer Karten ("Heute", "Sa., 31.01.", mit Uhrzeit). */
+	private shortDue(due: string): string {
+		return formatShortDue(due, intlLocale(), {
+			today: t("quick.note.today"),
+			tomorrow: t("quick.note.tomorrow"),
+			yesterday: t("quick.note.yesterday"),
+		});
+	}
+
 	private renderOriginBadge(container: HTMLElement, task: GtdTask): void {
 		const origin = task.origin;
 		if (!origin) return;

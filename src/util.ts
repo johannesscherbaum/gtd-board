@@ -634,6 +634,31 @@ function laneCounts(tasks: GtdTask[], lanes: LaneConfig[]): Record<string, numbe
 	return result;
 }
 
+/**
+ * Kurze, lesbare Faelligkeit fuer Karten: "Heute", "Morgen", "Gestern" bzw. Wochentag und Datum
+ * ("Sa., 31.01."), mit Jahr nur ausserhalb des laufenden Jahres, Uhrzeit angehaengt.
+ */
+export function formatShortDue(
+	due: string,
+	locale: string,
+	labels: { today: string; tomorrow: string; yesterday: string },
+	now: Date = new Date()
+): string {
+	const day = parseLocalDateTime(due.slice(0, 10), "00:00");
+	if (!day) return due;
+	const dayStr = formatLocalDate(day);
+	let text: string;
+	if (dayStr === formatLocalDate(now)) text = labels.today;
+	else if (dayStr === formatLocalDate(addDays(now, 1))) text = labels.tomorrow;
+	else if (dayStr === formatLocalDate(addDays(now, -1))) text = labels.yesterday;
+	else {
+		const options: Intl.DateTimeFormatOptions = { weekday: "short", day: "2-digit", month: "2-digit" };
+		if (day.getFullYear() !== now.getFullYear()) options.year = "numeric";
+		text = new Intl.DateTimeFormat(locale, options).format(day);
+	}
+	return hasTimeComponent(due) ? `${text} ${due.slice(11, 16)}` : text;
+}
+
 /** Person fuer "Besprechen mit": Name und Zahl der offenen Gespraechsthemen. */
 export interface TalkPerson {
 	name: string;

@@ -855,7 +855,7 @@
 	border: 1px solid var(--background-modifier-border);
 	border-left: 3px solid transparent;
 	border-radius: 6px;
-	padding: 8px 10px;
+	padding: 6px 10px;
 	cursor: grab;
 	box-shadow: var(--shadow-s);
 }
@@ -1851,4 +1851,26 @@
 /* Eintraege ohne Icon (z. B. einzelne Plaene) buendig unter denen mit Icon. */
 .gtd-sidebar-item-icon:empty {
 	width: 14px;
+}
+
+/* Kompakte Karten: Faelligkeit und Badges in einer Zeile. */
+.gtd-card-meta {
+	align-items: center;
+}
+
+.gtd-card-meta .gtd-card-due {
+	margin-top: 0;
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	font-size: 0.75em;
+}
+
+.gtd-card-due-icon {
+	display: inline-flex;
+}
+
+.gtd-card-due-icon svg {
+	width: 12px;
+	height: 12px;
 }

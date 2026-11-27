@@ -3,6 +3,7 @@ import { GtdTask } from "../src/types";
 import { t } from "../src/i18n";
 import {
 	addDays,
+	formatShortDue,
 	assignSequentialOrder,
 	bounceRecurringInlineLine,
 	buildIcsContent,
@@ -748,5 +749,19 @@ describe("reorderTaskIds / assignSequentialOrder", () => {
 
 	it("weist einer geordneten ID-Liste fortlaufende order-Werte zu", () => {
 		expect(assignSequentialOrder(["a", "d", "b", "c"])).toEqual({ a: 0, d: 1, b: 2, c: 3 });
+	});
+});
+
+describe("formatShortDue", () => {
+	const labels = { today: "Heute", tomorrow: "Morgen", yesterday: "Gestern" };
+	const now = new Date(2026, 10, 27, 10, 0);
+	it("nennt nahe Tage beim Namen, sonst Wochentag und Datum", () => {
+		expect(formatShortDue("2026-11-27", "de-DE", labels, now)).toBe("Heute");
+		expect(formatShortDue("2026-11-28T09:30", "de-DE", labels, now)).toBe("Morgen 09:30");
+		expect(formatShortDue("2026-11-26", "de-DE", labels, now)).toBe("Gestern");
+		expect(formatShortDue("2026-11-20", "de-DE", labels, now)).toBe("Fr., 20.11.");
+	});
+	it("zeigt das Jahr nur ausserhalb des laufenden Jahres", () => {
+		expect(formatShortDue("2027-01-31", "de-DE", labels, now)).toBe("So., 31.01.2027");
 	});
 });
