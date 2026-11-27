@@ -368,6 +368,7 @@ export const en = {
 			newTopic: "New topic for {name} ...",
 			openTopics: "Open topics ({count})",
 			newPersonHint: "New person: the first topic creates the note for {name}.",
+			notesCount: "{count} note(s)",
 			noOpenTopics: "No open topics.",
 			delegated: "Delegated to {name}",
 			discussed: "Discussed ({count})",
