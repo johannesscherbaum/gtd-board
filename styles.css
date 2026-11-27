@@ -1874,3 +1874,17 @@
 	width: 12px;
 	height: 12px;
 }
+
+/* Einklappbarer Block "Ueberfaellig" in der Heute-Ansicht. */
+.gtd-today-section-header.is-collapsible {
+	cursor: var(--cursor);
+}
+
+.gtd-today-section-chevron {
+	display: inline-flex;
+}
+
+.gtd-today-section-chevron svg {
+	width: 14px;
+	height: 14px;
+}

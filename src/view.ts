@@ -23,6 +23,9 @@ import {
 import { getLocale, originKindLabel, priorityLabel, recurrenceLabel, t } from "./i18n";
 
 /** Intl locale tag for date formatting, derived from our active i18n locale (used for the week view). */
+/** Schluessel in collapsedLanes fuer den eingeklappten Ueberfaellig-Block der Heute-Ansicht. */
+const OVERDUE_COLLAPSE_KEY = "__today-overdue__";
+
 function intlLocale(): string {
 	return getLocale() === "de" ? "de-DE" : "en-US";
 }
@@ -865,17 +868,38 @@ export class GtdBoardView extends ItemView {
 			return container;
 		}
 		if (focus.overdue.length > 0) {
-			this.renderTodaySection(container, t("view.today.overdue"), focus.overdue, "gtd-today-section-overdue");
+			// Lange Ueberfaellig-Listen sollen Heute nicht verdraengen: Block ist einklappbar,
+			// der Zustand wird wie bei den Lanes gemerkt.
+			this.renderTodaySection(container, t("view.today.overdue"), focus.overdue, "gtd-today-section-overdue", OVERDUE_COLLAPSE_KEY);
 		}
 		this.renderTodaySection(container, t("view.today.today"), focus.today, "gtd-today-section-today");
 		return container;
 	}
 
-	private renderTodaySection(container: HTMLElement, title: string, tasks: GtdTask[], cls: string): void {
+	private renderTodaySection(container: HTMLElement, title: string, tasks: GtdTask[], cls: string, collapseKey?: string): void {
 		const section = container.createDiv({ cls: ["gtd-today-section", cls] });
 		const header = section.createDiv({ cls: "gtd-today-section-header" });
+		const collapsed = !!collapseKey && this.plugin.settings.collapsedLanes.includes(collapseKey);
+		if (collapseKey) {
+			header.addClass("is-collapsible");
+			header.setAttribute("role", "button");
+			header.setAttribute("tabindex", "0");
+			header.setAttribute("aria-expanded", String(!collapsed));
+			header.setAttribute("title", collapsed ? t("view.lane.expand") : t("view.lane.collapse"));
+			const chevron = header.createSpan({ cls: "gtd-today-section-chevron" });
+			setIcon(chevron, collapsed ? "chevron-right" : "chevron-down");
+			const toggle = () => void this.toggleLaneCollapsed(collapseKey);
+			header.addEventListener("click", toggle);
+			header.addEventListener("keydown", (evt) => {
+				if (evt.key === "Enter" || evt.key === " ") {
+					evt.preventDefault();
+					toggle();
+				}
+			});
+		}
 		header.createSpan({ cls: "gtd-today-section-title", text: title });
 		header.createSpan({ cls: "gtd-today-section-count", text: String(tasks.length) });
+		if (collapsed) return;
 		const body = section.createDiv({ cls: "gtd-today-section-body" });
 		if (tasks.length === 0) {
 			body.createDiv({ cls: "gtd-today-empty", text: t("view.today.emptyToday") });
